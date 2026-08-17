@@ -179,3 +179,24 @@ export interface Estimate {
   pricing: PricingResult;
   warnings: Warning[];
 }
+
+export interface CoverageDrift {
+  productId: string;
+  name: string;
+  isPrimer: boolean;
+  assumedCoverage: number;
+  realCoverage: number;
+  estimatedGallons: number;
+  actualGallons: number;
+  deltaPct: number; // positive = bought more than estimated
+}
+
+export interface CalibrationReport {
+  coverage: CoverageDrift[];
+  finishGallonsEstimated: number;
+  finishGallonsActual: number;
+  finishShortfallPct: number;
+  finishRealCoverage: number;
+  productionRateAssumed: number; // min/sq ft
+  productionRateActual: number | null;
+}
