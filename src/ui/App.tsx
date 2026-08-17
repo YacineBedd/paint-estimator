@@ -3,8 +3,9 @@ import type { Project } from "../engine/types";
 import { newProject } from "../data/defaults";
 import { TakeoffScreen } from "./TakeoffScreen";
 import { ResultsScreen } from "./ResultsScreen";
+import { SettingsScreen } from "./SettingsScreen";
 
-type Screen = "takeoff" | "results";
+type Screen = "takeoff" | "results" | "settings";
 
 export default function App() {
   const [project, setProject] = useState<Project>(() =>
@@ -22,11 +23,16 @@ export default function App() {
         <button type="button" onClick={() => setScreen("results")}>
           Results
         </button>
+        <button type="button" onClick={() => setScreen("settings")}>
+          Settings
+        </button>
       </nav>
       {screen === "takeoff" ? (
         <TakeoffScreen project={project} onChange={setProject} />
-      ) : (
+      ) : screen === "results" ? (
         <ResultsScreen project={project} />
+      ) : (
+        <SettingsScreen project={project} onChange={setProject} />
       )}
     </main>
   );
