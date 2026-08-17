@@ -127,13 +127,21 @@ All-in realized: **$0.83/sq ft**.
 
 ### 4.4 His products
 
-| Code | Product              | List    | His price |
-| ---- | -------------------- | ------- | --------- |
-| K380 | Fresh Start primer   | $35.00  | ~$35.00   |
-| 549  | Regal Select — walls | $94.99  | $71.25    |
-| 550  | Regal — trim (Pearl) | $94.99  | $80.74    |
-| K532 | Aura Bath & Spa      | $112.99 | $84.74    |
-| K508 | Waterborne Ceiling   | $83.99  | $62.50    |
+All prices per gallon. `packSizeGal` is how he buys it, never how it is priced (defect 2).
+
+| Code | Product              | List/gal | His/gal | Ratio | Pack | Coverage |
+| ---- | -------------------- | -------- | ------- | ----- | ---- | -------- |
+| K380 | Fresh Start primer   | $35.00   | $42.00  | 1.20  | 5    | 500      |
+| 549  | Regal Select — walls | $94.99   | $71.25  | 0.75  | 1    | 500      |
+| 550  | Regal — trim (Pearl) | $94.99   | $80.74  | 0.85  | 1    | 500      |
+| K532 | Aura Bath & Spa      | $112.99  | $84.74  | 0.75  | 1    | **550**  |
+| K508 | Waterborne Ceiling   | $83.99   | $62.50  | 0.74  | 1    | 550      |
+
+Two things to confirm on the call (§14 Q4): K380's $42/gal is derived from the $210 pail,
+and it is the only product where he appears to pay _above_ list — which suggests the $35
+list figure is stale or refers to a different pack. K532 uses 550 sq ft/gal rather than the
+500 its wall usage would imply; that is his sheet's behaviour (`K23 = K22/J2`) and is
+encoded as `coverageOverride`.
 
 ### 4.5 Defects found
 
