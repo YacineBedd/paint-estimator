@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Opening, OpeningKind } from "../engine/types";
 
 const DEFAULTS: Record<OpeningKind, { width: number; height: number }> = {
@@ -27,6 +28,93 @@ function nextOpeningId(kind: OpeningKind): string {
   return `${kind}-${openingIdSeq}`;
 }
 
+interface RowProps {
+  opening: Opening;
+  onUpdate: (patch: Partial<Opening>) => void;
+  onRemove: () => void;
+}
+
+function OpeningRow({ opening: o, onUpdate, onRemove }: RowProps) {
+  // Quantity/width/height mirror local state instead of reading straight off
+  // `o` on every keystroke, for the same reason as RoomRow's wall/height
+  // inputs: a purely prop-controlled number input has its DOM value forced
+  // back to the last prop after every change unless the caller feeds the
+  // updated project back synchronously. In real usage that round trip lands
+  // one commit later (RoomRow -> TakeoffScreen -> App state); typing more
+  // than one character in a row then clobbers itself. Local state removes
+  // that dependency while still calling onUpdate on every change, and
+  // resyncs via useEffect if the value changes for a reason other than this
+  // row's own edit (e.g. the containing project is swapped out).
+  const [quantity, setQuantity] = useState(o.quantity);
+  const [width, setWidth] = useState(o.width);
+  const [height, setHeight] = useState(o.height);
+
+  useEffect(() => setQuantity(o.quantity), [o.quantity]);
+  useEffect(() => setWidth(o.width), [o.width]);
+  useEffect(() => setHeight(o.height), [o.height]);
+
+  return (
+    <div className="opening-row">
+      <span>{o.kind}</span>
+      <label>
+        Qty
+        <input
+          type="number"
+          min={0}
+          value={quantity}
+          onChange={(e) => {
+            const value = Number(e.target.value);
+            setQuantity(value);
+            onUpdate({ quantity: value });
+          }}
+        />
+      </label>
+      <label>
+        W
+        <input
+          type="number"
+          step="0.1"
+          value={width}
+          onChange={(e) => {
+            const value = Number(e.target.value);
+            setWidth(value);
+            onUpdate({ width: value });
+          }}
+        />
+      </label>
+      <label>
+        H
+        <input
+          type="number"
+          step="0.1"
+          value={height}
+          onChange={(e) => {
+            const value = Number(e.target.value);
+            setHeight(value);
+            onUpdate({ height: value });
+          }}
+        />
+      </label>
+      <label>
+        Cased sides
+        <select
+          value={o.casedSides}
+          onChange={(e) =>
+            onUpdate({ casedSides: Number(e.target.value) as 0 | 1 | 2 })
+          }
+        >
+          <option value={0}>0</option>
+          <option value={1}>1</option>
+          <option value={2}>2</option>
+        </select>
+      </label>
+      <button type="button" aria-label={`remove ${o.kind}`} onClick={onRemove}>
+        ×
+      </button>
+    </div>
+  );
+}
+
 interface Props {
   openings: Opening[];
   onChange: (openings: Opening[]) => void;
@@ -51,60 +139,12 @@ export function OpeningsEditor({ openings, onChange }: Props) {
       </div>
 
       {openings.map((o) => (
-        <div key={o.id} className="opening-row">
-          <span>{o.kind}</span>
-          <label>
-            Qty
-            <input
-              type="number"
-              min={0}
-              value={o.quantity}
-              onChange={(e) =>
-                update(o.id, { quantity: Number(e.target.value) })
-              }
-            />
-          </label>
-          <label>
-            W
-            <input
-              type="number"
-              step="0.1"
-              value={o.width}
-              onChange={(e) => update(o.id, { width: Number(e.target.value) })}
-            />
-          </label>
-          <label>
-            H
-            <input
-              type="number"
-              step="0.1"
-              value={o.height}
-              onChange={(e) => update(o.id, { height: Number(e.target.value) })}
-            />
-          </label>
-          <label>
-            Cased sides
-            <select
-              value={o.casedSides}
-              onChange={(e) =>
-                update(o.id, {
-                  casedSides: Number(e.target.value) as 0 | 1 | 2,
-                })
-              }
-            >
-              <option value={0}>0</option>
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            aria-label={`remove ${o.kind}`}
-            onClick={() => onChange(openings.filter((x) => x.id !== o.id))}
-          >
-            ×
-          </button>
-        </div>
+        <OpeningRow
+          key={o.id}
+          opening={o}
+          onUpdate={(patch) => update(o.id, patch)}
+          onRemove={() => onChange(openings.filter((x) => x.id !== o.id))}
+        />
       ))}
     </div>
   );
