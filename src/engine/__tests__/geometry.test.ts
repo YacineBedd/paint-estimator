@@ -239,6 +239,39 @@ describe("openings", () => {
     expect(g.doorSlabArea).toBe(0);
   });
 
+  // F3: a mis-keyed negative dimension must never subtract area (and thus
+  // hours/material) from a room — it should behave as if that entry were 0,
+  // not go negative and silently deflate the whole estimate.
+  it("clamps a negative wall dimension to 0 rather than going negative", () => {
+    const room: Room = {
+      ...base,
+      walls: [-10, 5],
+      ceilingHeight: 8,
+      openings: [],
+    };
+    const g = computeRoomGeometry(room, rates);
+    expect(g.grossWallArea).toBeGreaterThanOrEqual(0);
+    expect(g.netWallArea).toBeGreaterThanOrEqual(0);
+    expect(g.ceilingArea).toBeGreaterThanOrEqual(0);
+    expect(g.baseboardLinFt).toBeGreaterThanOrEqual(0);
+    expect(g.trimArea).toBeGreaterThanOrEqual(0);
+    // -10 clamps to 0, so perimeter is (0 + 5) × 2 = 10, not -10.
+    expect(g.grossWallArea).toBeCloseTo(80, 4); // 10 perimeter × 8 height
+    expect(g.ceilingArea).toBe(0); // 0 × 5
+  });
+
+  it("clamps a negative ceiling height to 0", () => {
+    const room: Room = {
+      ...base,
+      walls: [10, 10],
+      ceilingHeight: -8,
+      openings: [],
+    };
+    const g = computeRoomGeometry(room, rates);
+    expect(g.grossWallArea).toBe(0);
+    expect(g.netWallArea).toBe(0);
+  });
+
   it("never returns a negative net wall area", () => {
     const room: Room = {
       ...base,

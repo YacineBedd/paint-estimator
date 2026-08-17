@@ -35,8 +35,16 @@ export function computeRoomGeometry(
   rates: RateProfile,
 ): RoomGeometry {
   const qty = room.quantity;
-  const perimeter = roomPerimeter(room);
-  const grossWallArea = perimeter * room.ceilingHeight * qty;
+  // A mis-keyed negative wall length or ceiling height must never produce a
+  // negative surface (which would silently subtract hours/material rather
+  // than flag the room as empty). Clamp each wall entry individually — not
+  // just the final perimeter — so one bad entry in a multi-wall room only
+  // zeroes its own contribution instead of cancelling out the others.
+  const clampedWalls = room.walls.map((w) => Math.max(0, w));
+  const clampedRoom: Room = { ...room, walls: clampedWalls };
+  const ceilingHeight = Math.max(0, room.ceilingHeight);
+  const perimeter = roomPerimeter(clampedRoom);
+  const grossWallArea = perimeter * ceilingHeight * qty;
 
   const openings = room.openings;
   const deduction = openings.reduce((sum, o) => sum + openingArea(o), 0) * qty;
@@ -62,7 +70,7 @@ export function computeRoomGeometry(
     ),
     ceilingArea: inScope(
       room.scope.ceiling,
-      room.walls.length >= 2 ? room.walls[0]! * room.walls[1]! * qty : 0,
+      clampedWalls.length >= 2 ? clampedWalls[0]! * clampedWalls[1]! * qty : 0,
     ),
     baseboardLinFt: inScope(room.scope.trim, baseboard),
     casingLinFt: inScope(room.scope.trim, casing),
