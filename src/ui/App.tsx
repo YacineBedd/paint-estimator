@@ -1,6 +1,17 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import type { Project } from "../engine/types";
 import { newProject } from "../data/defaults";
+import {
+  loadProject,
+  saveProject,
+  loadRateProfile,
+  saveRateProfile,
+  loadPriceBook,
+  savePriceBook,
+  exportProject,
+  importProject,
+} from "../data/storage";
 import { TakeoffScreen } from "./TakeoffScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { SettingsScreen } from "./SettingsScreen";
@@ -9,11 +20,81 @@ import { QuickEstimateScreen } from "./QuickEstimateScreen";
 
 type Screen = "takeoff" | "results" | "settings" | "closeout" | "quick";
 
+const PROJECT_ID = "p1";
+const AUTOSAVE_DEBOUNCE_MS = 500;
+
+// The rate profile and price book persist under their OWN localStorage keys
+// (see src/data/storage.ts), separately from any one project, because a
+// painter's labor rates and price book carry over from job to job — they
+// aren't something he re-enters every time he starts a new estimate. So on
+// load we always take the last-saved global rates/price book as the source
+// of truth for `project.rateProfile`/`project.priceBook`, regardless of what
+// happens to be embedded in the loaded (or newly created) project object.
+function loadInitialProject(): Project {
+  const loaded = loadProject(PROJECT_ID);
+  const base = loaded ?? newProject("New estimate", PROJECT_ID);
+  return {
+    ...base,
+    rateProfile: loadRateProfile(),
+    priceBook: loadPriceBook(),
+  };
+}
+
 export default function App() {
-  const [project, setProject] = useState<Project>(() =>
-    newProject("New estimate", "p1"),
-  );
+  const [project, setProject] = useState<Project>(loadInitialProject);
   const [screen, setScreen] = useState<Screen>("takeoff");
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Autosave, debounced: a fresh save is scheduled on every project change,
+  // but the previous pending save is cancelled first, so a burst of
+  // keystrokes only ever writes once, ~500ms after the user stops typing —
+  // not once per keystroke.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      saveProject(project);
+      saveRateProfile(project.rateProfile);
+      savePriceBook(project.priceBook);
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [project]);
+
+  const handleExport = () => {
+    const json = exportProject(project);
+    // A data: URI (rather than Blob + URL.createObjectURL) keeps this
+    // dependency-free and works the same in real browsers and in jsdom
+    // under test — no object-URL lifecycle to manage or leak.
+    const href = `data:application/json;charset=utf-8,${encodeURIComponent(json)}`;
+    const filename = `${project.name || "estimate"}.json`;
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input so selecting the SAME file twice in a row still fires
+    // a change event.
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const imported = importProject(text);
+      setProject(imported);
+      setImportError(null);
+    } catch (err) {
+      setImportError(
+        err instanceof Error
+          ? err.message
+          : "That file is not a valid estimate.",
+      );
+    }
+  };
 
   return (
     <main>
@@ -35,6 +116,29 @@ export default function App() {
           Quick estimate
         </button>
       </nav>
+
+      <div className="project-io">
+        <button type="button" onClick={handleExport}>
+          Export
+        </button>
+        <button type="button" onClick={handleImportClick}>
+          Import
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          aria-label="import project file"
+          style={{ display: "none" }}
+          onChange={handleImportFile}
+        />
+        {importError && (
+          <p role="alert" data-testid="import-error" className="import-error">
+            {importError}
+          </p>
+        )}
+      </div>
+
       {screen === "takeoff" ? (
         <TakeoffScreen project={project} onChange={setProject} />
       ) : screen === "results" ? (
