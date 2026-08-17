@@ -11,10 +11,13 @@ export function roomPerimeter(room: Room): number {
 
 // A negative width/height/quantity is only reachable through a hand-edited
 // or corrupted import file (the UI enforces min={0}), but the engine must
-// not depend on the UI for its invariants: a negative value here would
-// silently subtract casing/trim/slab area (and thus hours/money) instead of
-// contributing nothing. Clamp each dimension individually, the same way
-// room walls and ceiling height are clamped above.
+// not depend on the UI for its invariants: an unclamped negative value here
+// would silently subtract area (and thus hours/money) instead of
+// contributing nothing — or, in doorWidths' case below (subtracted from
+// perimeter rather than added to a total), inflate it instead. Clamp each
+// dimension individually, the same way room walls and ceiling height are
+// clamped below, and share this one helper across every opening arithmetic
+// path so none of them can drift out of sync with the others.
 const clampNonNegative = (n: number): number => Math.max(0, n);
 
 const openingArea = (o: Opening): number =>
@@ -70,9 +73,19 @@ export function computeRoomGeometry(
   const deduction = openings.reduce((sum, o) => sum + openingArea(o), 0) * qty;
   const openingAreaTotal = Math.min(deduction, grossWallArea);
 
+  // doorWidths is SUBTRACTED from perimeter below, so — unlike the additive
+  // openingArea/casingLinFt/slabArea helpers above — an unclamped negative
+  // width or quantity here doesn't zero out; it makes baseboard LONGER than
+  // the room's actual perimeter, inflating trimArea, hours, and price.
+  // Clamp with the same shared helper those three helpers use, so this
+  // fourth arithmetic path can't drift out of sync with them.
   const doorWidths = openings
     .filter((o) => o.kind === "door" || o.kind === "passage")
-    .reduce((sum, o) => sum + o.width * o.quantity, 0);
+    .reduce(
+      (sum, o) =>
+        sum + clampNonNegative(o.width) * clampNonNegative(o.quantity),
+      0,
+    );
 
   const baseboard = Math.max(0, perimeter - doorWidths) * qty;
   const casing = openings.reduce((sum, o) => sum + casingLinFt(o), 0) * qty;

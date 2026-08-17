@@ -402,15 +402,15 @@ describe("opening dimension clamping (R2)", () => {
     const g = computeRoomGeometry(room, rates);
     const zeroG = computeRoomGeometry(zeroQtyRoom, rates);
     // openingArea/casingLinFt/doorSlabArea flow through the three clamped
-    // helpers (openingArea, casingLinFt, slabArea) and so match the
-    // zero-quantity room exactly. trimArea also folds in room-level
-    // baseboard (perimeter minus door widths), which is a separate,
-    // unclamped computation outside this fix's scope — so it is only
-    // asserted non-negative, not equal to the zero-quantity case.
+    // helpers (openingArea, casingLinFt, slabArea); doorWidths — used only
+    // for baseboard — is now clamped the same way with the shared
+    // clampNonNegative helper. So a negative quantity matches the
+    // zero-quantity room across every output, including baseboard/trimArea.
     expect(g.openingArea).toBe(zeroG.openingArea);
     expect(g.casingLinFt).toBe(zeroG.casingLinFt);
     expect(g.doorSlabArea).toBe(zeroG.doorSlabArea);
-    expect(g.trimArea).toBeGreaterThanOrEqual(0);
+    expect(g.baseboardLinFt).toBe(zeroG.baseboardLinFt);
+    expect(g.trimArea).toBe(zeroG.trimArea);
   });
 
   it("never lets netWallArea exceed grossWallArea as a result of any clamping", () => {
@@ -420,6 +420,36 @@ describe("opening dimension clamping (R2)", () => {
     };
     const g = computeRoomGeometry(room, rates);
     expect(g.netWallArea).toBeLessThanOrEqual(g.grossWallArea);
+  });
+
+  // doorWidths is SUBTRACTED from perimeter to shorten baseboard around a
+  // door. Unlike the additive helpers above, an unclamped negative width or
+  // quantity there doesn't zero out — it makes doorWidths negative, which
+  // makes baseboard LONGER than the room's actual perimeter (over-billing,
+  // not under-billing). baseboardLinFt must never exceed the plain room
+  // perimeter as a result of a bad door opening.
+  it("never inflates baseboardLinFt past the room perimeter from a negative door width", () => {
+    const room: Room = {
+      ...base,
+      walls: [10, 10],
+      quantity: 1,
+      openings: [{ ...doorOpening, width: -3, quantity: 1 }],
+    };
+    const g = computeRoomGeometry(room, rates);
+    const perimeter = roomPerimeter(room);
+    expect(g.baseboardLinFt).toBeLessThanOrEqual(perimeter);
+  });
+
+  it("never inflates baseboardLinFt past the room perimeter from a negative door quantity", () => {
+    const room: Room = {
+      ...base,
+      walls: [10, 10],
+      quantity: 1,
+      openings: [{ ...doorOpening, width: 3, quantity: -2 }],
+    };
+    const g = computeRoomGeometry(room, rates);
+    const perimeter = roomPerimeter(room);
+    expect(g.baseboardLinFt).toBeLessThanOrEqual(perimeter);
   });
 });
 
