@@ -6,7 +6,12 @@
 
 **Architecture:** A pure TypeScript engine (`src/engine/`) with zero framework dependencies and zero I/O takes geometry + rates in and returns a full itemized estimate. A React UI consumes it. The engine is the product; the UI is a shell around it. `geometry.ts` is the sole seam the phase-2 floorplan sketcher will touch.
 
-**Tech Stack:** TypeScript 5.x (strict), React 18, Vite 5, Vitest, `localStorage`. No backend, no database, no auth, no runtime dependencies in the engine.
+**Tech Stack:** TypeScript 5.9 (strict), React 19, Vite 8, Vitest, `localStorage`. No backend, no database, no auth, no runtime dependencies in the engine.
+
+> **Version note (amended during Task 1).** This originally read "React 18, Vite 5" —
+> a stale constraint. React 19 and Vite 8 are current and are what the project ships on.
+> TypeScript is deliberately held at **5.9**, not 7.x: TS 7 is a ground-up reimplementation,
+> and taking that unknown into the remaining tasks buys the estimator nothing.
 
 **Spec:** `docs/superpowers/specs/2026-08-16-paint-estimator-design.md`
 
