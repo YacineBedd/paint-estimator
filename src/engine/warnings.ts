@@ -2,9 +2,16 @@ import type { Project, RoomGeometry, Warning } from "./types";
 
 const STALE_DAYS = 182;
 
+// A caller-supplied default keeps the engine deterministic — no Date.now()
+// call lives in src/engine/** (purity.test.ts enforces this) — while still
+// letting every existing call site that doesn't care about staleness omit
+// the argument. Real callers (the UI) must pass Date.now() explicitly.
+const FALLBACK_NOW = Date.parse("2026-08-16T00:00:00Z");
+
 export function collectWarnings(
   project: Project,
   geometry: RoomGeometry[],
+  now: number = FALLBACK_NOW,
 ): Warning[] {
   const warnings: Warning[] = [];
   const geoById = new Map(geometry.map((g) => [g.roomId, g]));
@@ -33,7 +40,6 @@ export function collectWarnings(
     }
   }
 
-  const now = Date.parse("2026-08-16T00:00:00Z");
   for (const product of project.priceBook) {
     const updated = Date.parse(product.priceUpdatedAt);
     if (Number.isNaN(updated)) continue;
