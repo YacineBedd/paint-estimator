@@ -90,17 +90,21 @@ export function ResultsScreen({ project }: { project: Project }) {
       <section className="labor">
         <h3>Labor</h3>
 
+        {/* The caption carries the words; the value carries the figure and
+            the shortest unit that keeps it unambiguous. That is what lets
+            the right-hand column be a clean stack of tabular numerals
+            instead of a wall of monospaced English. */}
         <div className="readouts">
           <Readout
             label="Hours worked"
             testId="hours-worked"
-            value={`${formatHours(labor.hoursWorked)} hrs worked`}
+            value={`${formatHours(labor.hoursWorked)} h`}
           />
           <Readout
             label="Billed, rooms"
             testId="hours-billed-rooms"
-            value={`${labor.billedRoomHours} billed`}
-            note="rounded up per room"
+            value={`${labor.billedRoomHours} h`}
+            note="each room rounded up to the whole hour"
           />
           <Readout
             label="Value of that rounding"
@@ -110,7 +114,7 @@ export function ResultsScreen({ project }: { project: Project }) {
           <Readout
             label="Travel"
             testId="hours-travel"
-            value={`${labor.travelHours} travel`}
+            value={`${labor.travelHours} h`}
             note={`${formatCrewDays(labor.days)} at ${project.rateProfile.travelHoursPerDay} hr each`}
           />
           <Readout
@@ -121,18 +125,25 @@ export function ResultsScreen({ project }: { project: Project }) {
           <Readout
             label="Total billed hours"
             testId="hours-total"
-            value={`${labor.totalBilledHours} total`}
+            value={`${labor.totalBilledHours} h`}
             strong
           />
         </div>
 
+        {/* Deliberately NOT monospaced. A mono hyphen at this weight is
+            nearly as wide as an em-dash, which is how "1 crew-day" came to
+            look like "1 crew—days" in the first place. This is a sentence,
+            so it is set in the text face; only the digits inside it get the
+            tabular treatment. */}
         <p className="labor-days">
           <span data-testid="crew-days">{formatCrewDays(labor.days)}</span> at{" "}
-          {project.rateProfile.hoursPerDay} hrs a day.
+          <span className="num">{project.rateProfile.hoursPerDay}</span> hrs a
+          day.
         </p>
-        <p className="section-total" data-testid="labor-cost">
-          {formatMoney(pricing.laborCost)}
-        </p>
+        <div className="section-total">
+          <span className="section-total-label">Labour</span>
+          <span data-testid="labor-cost">{formatMoney(pricing.laborCost)}</span>
+        </div>
       </section>
 
       <section className="materials">
@@ -166,9 +177,12 @@ export function ResultsScreen({ project }: { project: Project }) {
             </tbody>
           </table>
         </div>
-        <p className="section-total" data-testid="material-cost">
-          {formatMoney(pricing.materialCost)}
-        </p>
+        <div className="section-total">
+          <span className="section-total-label">Materials</span>
+          <span data-testid="material-cost">
+            {formatMoney(pricing.materialCost)}
+          </span>
+        </div>
       </section>
 
       <section className="total">

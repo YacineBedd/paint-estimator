@@ -188,13 +188,24 @@ export function RoomEditor({
         />
       </div>
 
-      {geometry && (
+      {/* Captions in the text face, areas in tabular mono — the same split
+          the Estimate screen's readouts use. */}
+      {geometry && geometry.grossWallArea + geometry.ceilingArea > 0 && (
         <div className="room-geometry">
-          <span>Net wall {formatArea(geometry.netWallArea)}</span>
+          <span>
+            Net wall <b className="num">{formatArea(geometry.netWallArea)}</b>
+          </span>
           {geometry.openingArea > 0 && (
-            <span> (−{formatArea(geometry.openingArea)} openings)</span>
+            <span>
+              {" "}
+              (−<b className="num">{formatArea(geometry.openingArea)}</b>{" "}
+              openings)
+            </span>
           )}
-          <span> · Ceiling {formatArea(geometry.ceilingArea)}</span>
+          <span>
+            {" "}
+            · Ceiling <b className="num">{formatArea(geometry.ceilingArea)}</b>
+          </span>
         </div>
       )}
 

@@ -95,11 +95,11 @@ export function QuickEstimateScreen({ rates, priceBook }: Props) {
       </div>
 
       <p data-testid="quick-total">{formatMoney(estimate.pricing.total)}</p>
+      {/* Only the digits are monospaced: a mono hyphen reads as an em-dash,
+          which is exactly how "crew-days" went wrong before. */}
       <p className="quick-sub">
-        <span className="num">
-          {formatHours(estimate.labor.hoursWorked)} hrs
-        </span>{" "}
-        · <span className="num">{formatCrewDays(estimate.labor.days)}</span>
+        <span className="num">{formatHours(estimate.labor.hoursWorked)}</span>{" "}
+        hrs · {formatCrewDays(estimate.labor.days)}
       </p>
       <p className="note">
         Ballpark only — wall area is estimated from floor area. Do a

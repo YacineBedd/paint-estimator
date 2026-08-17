@@ -63,6 +63,10 @@
 
   --shell: 760px;
   --tabbar-h: 58px;
+  /* The bar's own 2px top border sits outside its 58px of content box, so
+     anything stacking on top of it has to clear 60px, not 58 — otherwise
+     the totals bar's last two pixels hide behind that border. */
+  --tabbar-total: calc(var(--tabbar-h) + 2px);
   --totals-h: 58px;
   --safe-b: env(safe-area-inset-bottom, 0px);
 
@@ -213,7 +217,6 @@ input[type="number"],
 .room-card-money,
 .room-card-hours,
 .room-card-size,
-.room-geometry,
 .drift-note,
 .totals,
 .total [data-testid="grand-total"],
@@ -234,12 +237,12 @@ main {
   /* Bottom padding clears the fixed tab bar. Screens that also carry the
      fixed totals bar reserve its height too, via :has() below. */
   padding: var(--space-4) var(--space-4)
-    calc(var(--tabbar-h) + var(--safe-b) + var(--space-5));
+    calc(var(--tabbar-total) + var(--safe-b) + var(--space-5));
 }
 
 main:has(.totals) {
   padding-bottom: calc(
-    var(--tabbar-h) + var(--totals-h) + var(--safe-b) + var(--space-5)
+    var(--tabbar-total) + var(--totals-h) + var(--safe-b) + var(--space-5)
   );
 }
 
@@ -888,6 +891,12 @@ button[aria-label^="remove"] {
   color: var(--ink-soft);
 }
 
+.room-geometry b {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
 .room-geometry {
   display: flex;
   flex-wrap: wrap;
@@ -909,6 +918,7 @@ button[aria-label^="remove"] {
 }
 
 .opening-row {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -921,8 +931,15 @@ button[aria-label^="remove"] {
   margin-bottom: var(--space-2);
 }
 
+/* The kind ("DOOR"/"WINDOW") owns the header line on its own; the remove
+   button is lifted out of flow into that line's right end so it stops
+   claiming a whole 44px row of its own under every opening. */
 .opening-row > span {
+  display: flex;
+  align-items: center;
   flex-basis: 100%;
+  min-height: var(--tap);
+  padding-right: calc(var(--tap) + var(--space-2));
   font-weight: 800;
   text-transform: uppercase;
   font-size: 0.75rem;
@@ -931,7 +948,7 @@ button[aria-label^="remove"] {
 }
 
 .opening-row label {
-  flex: 1 1 70px;
+  flex: 1 1 62px;
   margin-bottom: 0;
 }
 
@@ -940,8 +957,11 @@ button[aria-label^="remove"] {
 }
 
 .opening-row button[aria-label^="remove"] {
-  flex: 0 0 auto;
-  align-self: flex-end;
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  min-width: var(--tap);
+  padding: 0;
 }
 
 .room-more .disclosure-body > fieldset:first-child {
@@ -1029,12 +1049,13 @@ fieldset.products label:last-child {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--tabbar-h) + var(--safe-b));
+  bottom: calc(var(--tabbar-total) + var(--safe-b));
   z-index: 30;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
+  gap: 0 var(--space-4);
   min-height: var(--totals-h);
   /* Centres the content on the same rail as <main> on wide screens without
      the bar itself stopping short of the window edges. */
@@ -1047,9 +1068,25 @@ fieldset.products label:last-child {
   font-weight: 700;
 }
 
+.totals > span {
+  white-space: nowrap;
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.totals [data-testid="total-hours"] {
+  grid-area: 1 / 1;
+}
+
+.totals [data-testid="total-billed"] {
+  grid-area: 2 / 1;
+}
+
 .totals [data-testid="total-price"] {
-  font-size: 1.5rem;
+  grid-area: 1 / 2 / span 2 / 3;
+  font-size: 1.6rem;
   font-weight: 900;
+  opacity: 1;
   color: var(--totals-hero);
 }
 
@@ -1132,18 +1169,36 @@ fieldset.products label:last-child {
   color: var(--ink-soft);
 }
 
+/* Text face, NOT mono. This is the line that produced "1 crew—days": the
+   monospace hyphen is nearly em-dash width at this weight, so setting a
+   phrase containing one in mono is how the typo reached a client-facing
+   document. Numerals still get tabular figures, which the text face
+   supports without changing family. */
 .labor-days [data-testid="crew-days"] {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   color: var(--ink);
 }
 
 .section-total {
-  font-size: 1.15rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--line);
+  font-size: 1.2rem;
   font-weight: 800;
   color: var(--ink);
-  margin-bottom: 0;
+}
+
+.section-total-label {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
 }
 
 .total {
