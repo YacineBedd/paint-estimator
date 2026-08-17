@@ -4,8 +4,9 @@ import { newProject } from "../data/defaults";
 import { TakeoffScreen } from "./TakeoffScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { SettingsScreen } from "./SettingsScreen";
+import { CloseoutScreen } from "./CloseoutScreen";
 
-type Screen = "takeoff" | "results" | "settings";
+type Screen = "takeoff" | "results" | "settings" | "closeout";
 
 export default function App() {
   const [project, setProject] = useState<Project>(() =>
@@ -26,13 +27,18 @@ export default function App() {
         <button type="button" onClick={() => setScreen("settings")}>
           Settings
         </button>
+        <button type="button" onClick={() => setScreen("closeout")}>
+          Close-out
+        </button>
       </nav>
       {screen === "takeoff" ? (
         <TakeoffScreen project={project} onChange={setProject} />
       ) : screen === "results" ? (
         <ResultsScreen project={project} />
-      ) : (
+      ) : screen === "settings" ? (
         <SettingsScreen project={project} onChange={setProject} />
+      ) : (
+        <CloseoutScreen project={project} onChange={setProject} />
       )}
     </main>
   );
