@@ -3,6 +3,7 @@ import type { Project, Room } from "../engine/types";
 import { computeEstimate } from "../engine/estimate";
 import { DEFAULT_RATE_PROFILE } from "../data/defaults";
 import { RoomRow } from "./RoomRow";
+import { CustomSurfacesEditor } from "./CustomSurfacesEditor";
 import { formatHours, formatMoney } from "./format";
 
 interface Props {
@@ -37,7 +38,10 @@ function blankRoom(id: string): Room {
 }
 
 export function TakeoffScreen({ project, onChange }: Props) {
-  const estimate = useMemo(() => computeEstimate(project), [project]);
+  const estimate = useMemo(
+    () => computeEstimate(project, Date.now()),
+    [project],
+  );
   const geoById = new Map(estimate.geometry.map((g) => [g.roomId, g]));
 
   const updateRoom = (room: Room) =>
@@ -65,6 +69,7 @@ export function TakeoffScreen({ project, onChange }: Props) {
           key={room.id}
           room={room}
           geometry={geoById.get(room.id)}
+          priceBook={project.priceBook}
           onChange={updateRoom}
           onRemove={() =>
             onChange({
@@ -87,6 +92,12 @@ export function TakeoffScreen({ project, onChange }: Props) {
       >
         Add room
       </button>
+
+      <CustomSurfacesEditor
+        customSurfaces={project.customSurfaces}
+        priceBook={project.priceBook}
+        onChange={(customSurfaces) => onChange({ ...project, customSurfaces })}
+      />
 
       <footer className="totals">
         <span data-testid="total-hours">

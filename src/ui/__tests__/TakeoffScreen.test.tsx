@@ -6,6 +6,7 @@ import { TakeoffScreen } from "../TakeoffScreen";
 import { newOpening } from "../OpeningsEditor";
 import { goldenJob } from "../../engine/__fixtures__/goldenJob";
 import { newProject } from "../../data/defaults";
+import { computeEstimate } from "../../engine/estimate";
 import type { Project } from "../../engine/types";
 
 describe("TakeoffScreen", () => {
@@ -133,6 +134,114 @@ describe("TakeoffScreen", () => {
       );
       const last = onChange.mock.calls.at(-1)![0];
       expect(last.rooms[0].openings[0].casedSides).toBe(1);
+    });
+  });
+
+  // F2: a bathroom is priced as a bedroom until its wall/ceiling/trim
+  // products are reachable in the UI. Selecting a different wall product for
+  // a room must be enough to move that room's area to the new product's
+  // material requirement.
+  it("selecting Aura for a room's walls moves the estimate's allocation to Aura (F2)", async () => {
+    const onChange = vi.fn();
+    render(<TakeoffScreen project={goldenJob} onChange={onChange} />);
+
+    // rooms order: bathroom(0), bedroom1(1), bedroom2(2), kitchen(3) — bedroom
+    // 1 starts on Regal Select (549).
+    const wallSelects = screen.getAllByLabelText(/wall product/i);
+    expect(wallSelects).toHaveLength(goldenJob.rooms.length);
+    await userEvent.selectOptions(wallSelects[1]!, "K532");
+
+    const updated: Project = onChange.mock.calls.at(-1)![0];
+    expect(updated.rooms[1]!.wallProductId).toBe("K532");
+
+    const before = computeEstimate(goldenJob);
+    const after = computeEstimate(updated);
+    const auraArea = (est: ReturnType<typeof computeEstimate>) =>
+      est.materials.requirements.find((r) => r.productId === "K532")
+        ?.coatedArea ?? 0;
+    const wallsArea = (est: ReturnType<typeof computeEstimate>) =>
+      est.materials.requirements.find((r) => r.productId === "549")
+        ?.coatedArea ?? 0;
+
+    expect(auraArea(after)).toBeGreaterThan(auraArea(before));
+    expect(wallsArea(after)).toBeLessThan(wallsArea(before));
+  });
+
+  // F8: every door bills both faces by default with no way to turn it off.
+  // Unchecking "Paint door faces" must drop that door's slab area to 0.
+  it("unchecking 'Paint door faces' drops doorSlabArea to 0 (F8)", async () => {
+    const withDoor: Project = {
+      ...goldenJob,
+      rooms: [
+        { ...goldenJob.rooms[0]!, openings: [newOpening("door", "test-door")] },
+        ...goldenJob.rooms.slice(1),
+      ],
+    };
+    expect(withDoor.rooms[0]!.openings[0]!.paintSlab).toBe(true);
+
+    const onChange = vi.fn();
+    render(<TakeoffScreen project={withDoor} onChange={onChange} />);
+
+    const checkbox = screen.getByLabelText(/paint door faces/i);
+    expect(checkbox).toBeChecked();
+    await userEvent.click(checkbox);
+
+    const updated: Project = onChange.mock.calls.at(-1)![0];
+    expect(updated.rooms[0]!.openings[0]!.paintSlab).toBe(false);
+
+    const after = computeEstimate(updated);
+    const room0Geometry = after.geometry.find(
+      (g) => g.roomId === updated.rooms[0]!.id,
+    )!;
+    expect(room0Geometry.doorSlabArea).toBe(0);
+  });
+
+  describe("custom surfaces (F9)", () => {
+    it("adds a custom surface and includes it in the estimate", async () => {
+      const base = newProject("custom surface test", "cs-test");
+      function Wrapper() {
+        const [p, setP] = useState(base);
+        return <TakeoffScreen project={p} onChange={setP} />;
+      }
+      render(<Wrapper />);
+
+      await userEvent.click(
+        screen.getByRole("button", { name: /add custom surface/i }),
+      );
+      expect(screen.getByLabelText(/^name$/i)).toBeInTheDocument();
+
+      const areaInput = screen.getByLabelText(/area/i);
+      await userEvent.clear(areaInput);
+      await userEvent.type(areaInput, "100");
+
+      // Total hours should now reflect the custom surface's area at its
+      // default rate (0.75 min/sq ft): 100 × 0.75 / 60 = 1.25 hrs.
+      expect(screen.getByTestId("total-hours")).toHaveTextContent("1.3");
+    });
+
+    it("removes a custom surface", async () => {
+      const base: Project = {
+        ...newProject("custom surface test", "cs-test2"),
+        customSurfaces: [
+          {
+            id: "cs-x",
+            name: "Doors & trim",
+            area: 280,
+            rateMinPerSqFt: 0.75,
+            productId: "550",
+            coats: 1,
+            includeInPrimer: true,
+          },
+        ],
+      };
+      const onChange = vi.fn();
+      render(<TakeoffScreen project={base} onChange={onChange} />);
+
+      await userEvent.click(
+        screen.getByRole("button", { name: /remove custom surface/i }),
+      );
+      const updated: Project = onChange.mock.calls.at(-1)![0];
+      expect(updated.customSurfaces).toHaveLength(0);
     });
   });
 
