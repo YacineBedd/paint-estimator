@@ -19,15 +19,26 @@ const casingLinFt = (o: Opening): number =>
 const slabArea = (o: Opening): number =>
   o.kind === "door" && o.paintSlab ? o.width * o.height * 2 * o.quantity : 0;
 
+/**
+ * Computes wall, ceiling, and trim geometry for one room, net of openings.
+ *
+ * Ceiling area convention: a 4-entry `room.walls` array MUST be ordered
+ * `[a, b, a, b]` — alternating opposite sides of a rectangle, matching the
+ * 2-entry `[a, b]` convention. `ceilingArea` is derived as `walls[0] *
+ * walls[1]`, which depends on that ordering: a grouped-pairs array such as
+ * `[10, 10, 12, 12]` (same rectangle, different order) yields a wrong
+ * ceiling area (100 instead of 120). v1's UI only ever produces 2-entry
+ * arrays, so this is currently latent, not live.
+ */
 export function computeRoomGeometry(
   room: Room,
   rates: RateProfile,
 ): RoomGeometry {
-  const qty = room.quantity ?? 1;
+  const qty = room.quantity;
   const perimeter = roomPerimeter(room);
   const grossWallArea = perimeter * room.ceilingHeight * qty;
 
-  const openings = room.openings ?? [];
+  const openings = room.openings;
   const deduction = openings.reduce((sum, o) => sum + openingArea(o), 0) * qty;
   const openingAreaTotal = Math.min(deduction, grossWallArea);
 

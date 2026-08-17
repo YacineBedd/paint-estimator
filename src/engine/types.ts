@@ -24,7 +24,12 @@ export interface Room {
   name: string;
   floor: number;
   quantity: number;
-  walls: number[]; // 2 entries (rectangular, mirrored) or 4
+  // 2 entries (rectangular, mirrored: [a, b]) or 4. A 4-entry array MUST be
+  // ordered [a, b, a, b] — alternating opposite sides — not grouped pairs
+  // like [a, a, b, b]. geometry.ts derives ceilingArea as walls[0] * walls[1],
+  // which depends on this ordering; grouped-pairs order yields a wrong
+  // ceiling area.
+  walls: number[];
   ceilingHeight: number;
   scope: RoomScope;
   wallProductId: string;
