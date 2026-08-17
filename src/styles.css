@@ -1,0 +1,1045 @@
+/*
+  Paint Estimator — stylesheet
+  ============================
+  One user: a residential painting contractor in Quebec, on his phone,
+  standing in a client's house, tape measure in hand. Sometimes on a
+  laptop at the kitchen table afterwards. Design brief, in order:
+
+    1. Phone-first (390px baseline), no sideways body scroll.
+    2. Every tap target >= 44px.
+    3. Money & hours legible and unambiguous (tabular digits, never faint).
+    4. Warning levels visually distinct: error = STOP, info = note.
+    5. Sticky totals footer on the takeoff screen.
+    6. Strong contrast — assume sunlight through a window.
+
+  Aesthetic: "job-site spec sheet" — clipboard/work-order energy rather
+  than generic-app energy. Hard-edged index-card shadows instead of soft
+  blur, uppercase stencil-style field captions, a monospace readout for
+  every number (money and hours are the product), and a hazard-tape
+  treatment reserved for hard errors.
+
+  Fonts are system stacks on purpose, not from neglect: this has to
+  render correctly with zero network access, standing in a house with a
+  weak signal. Distinctiveness comes from type-scale, color, borders and
+  the tabular/monospace treatment of numerals instead of a downloaded
+  font.
+*/
+
+/* ---------------------------------------------------------------------
+   1. Tokens
+   ------------------------------------------------------------------ */
+
+:root {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2.25rem;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  --tap: 44px;
+
+  /* Light theme (default) */
+  --bg: #f3f1ea;
+  --paper: #ffffff;
+  --paper-alt: #faf8f1;
+  --ink: #14171b;
+  --ink-soft: #454b53;
+  --line: #1c2024;
+  --line-soft: #d8d3c5;
+
+  --accent: #0b4f9e;
+  --accent-ink: #ffffff;
+  --accent-soft-bg: #e3edfb;
+  --accent-soft-ink: #0a3c78;
+
+  --error-bg: #c81e2a;
+  --error-ink: #ffffff;
+  --error-border: #7a0f18;
+  --error-stripe-a: #14171b;
+  --error-stripe-b: #ffcc00;
+
+  --warn-bg: #fff1d1;
+  --warn-ink: #5c3d00;
+  --warn-border: #c8860a;
+
+  --info-bg: #e3edfb;
+  --info-ink: #0a3c78;
+  --info-border: #0b4f9e;
+
+  --totals-bg: #10141a;
+  --totals-ink: #f2f0e9;
+  --totals-hero: #ffb020;
+  --totals-border: #ffb020;
+
+  --shadow-card: 3px 3px 0 var(--line);
+  --shadow-card-sm: 2px 2px 0 var(--line);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171b;
+    --paper: #1d2127;
+    --paper-alt: #242830;
+    --ink: #f2f0e9;
+    --ink-soft: #b9bec6;
+    --line: #4a515b;
+    --line-soft: #333941;
+
+    --accent: #5b9dff;
+    --accent-ink: #071322;
+    --accent-soft-bg: #122840;
+    --accent-soft-ink: #a9d0ff;
+
+    --error-bg: #93242e;
+    --error-ink: #ffeeed;
+    --error-border: #ffb3af;
+    --error-stripe-a: #05070a;
+    --error-stripe-b: #ffcc00;
+
+    --warn-bg: #3a2600;
+    --warn-ink: #ffd479;
+    --warn-border: #c8860a;
+
+    --info-bg: #122840;
+    --info-ink: #bcdcff;
+    --info-border: #5b9dff;
+
+    --totals-bg: #05070a;
+    --totals-ink: #f2f0e9;
+    --totals-hero: #ffc24d;
+    --totals-border: #ffc24d;
+
+    color-scheme: dark;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   2. Reset & base
+   ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
+  width: 100%;
+  overflow-x: hidden; /* never let the page scroll sideways */
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+img,
+table {
+  max-width: 100%;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  margin: 0 0 var(--space-4);
+  color: var(--ink);
+}
+
+p {
+  margin: 0 0 var(--space-3);
+}
+
+a {
+  color: var(--accent);
+}
+
+::selection {
+  background: var(--totals-hero);
+  color: #14171b;
+}
+
+/* ---------------------------------------------------------------------
+   3. App shell
+   ------------------------------------------------------------------ */
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-6);
+}
+
+main > h1 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+  border-bottom: 3px solid var(--line);
+}
+
+main > h1::before {
+  content: "";
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+  border-radius: 4px;
+  border: 2px solid var(--line);
+  background: linear-gradient(135deg, var(--accent), var(--totals-hero));
+}
+
+nav {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-4);
+  scrollbar-width: thin;
+}
+
+nav button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  background: var(--paper);
+}
+
+.project-io {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.project-io button {
+  background: var(--paper);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.import-error {
+  flex-basis: 100%;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--error-bg);
+  color: var(--error-ink);
+  border: 2px solid var(--error-border);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------
+   4. Form primitives (shared everywhere)
+   ------------------------------------------------------------------ */
+
+label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin-bottom: var(--space-3);
+}
+
+input,
+select {
+  display: block;
+  width: 100%;
+  min-height: var(--tap);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input[type="number"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+    linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position:
+    right 1.1rem center,
+    right 0.75rem center;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2.4rem;
+}
+
+/* Checkbox rows: the whole label is the tap target, not just the box. */
+label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-1);
+  text-transform: none;
+  font-weight: 500;
+  font-size: 1rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+label:has(> input[type="checkbox"]) input[type="checkbox"] {
+  width: 1.4rem;
+  height: 1.4rem;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+fieldset {
+  border: none;
+  border-top: 2px solid var(--line-soft);
+  padding: var(--space-4) 0 0;
+  margin: var(--space-4) 0 0;
+}
+
+legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+button {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0.65rem 1.1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    transform 0.05s ease,
+    background-color 0.15s ease;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+/* Primary "add" actions */
+.takeoff > button,
+.custom-surfaces > button,
+.openings-actions button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+/* Every destructive "remove" button shares this aria-label prefix. */
+button[aria-label^="remove"] {
+  background: var(--error-bg);
+  color: var(--error-ink);
+  border-color: var(--error-border);
+  padding: 0.65rem 0.9rem;
+}
+
+.note {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  border-left: 3px solid var(--line-soft);
+  padding-left: var(--space-3);
+}
+
+/* ---------------------------------------------------------------------
+   5. Warnings — error must read as STOP, info as a note.
+   ------------------------------------------------------------------ */
+
+.warnings {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.warnings li {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.warning-info {
+  background: var(--info-bg);
+  color: var(--info-ink);
+  border-left: 4px solid var(--info-border);
+}
+
+.warning-info::before {
+  content: "NOTE — ";
+  font-weight: 800;
+}
+
+.warning-warning {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  border-left: 4px solid var(--warn-border);
+}
+
+.warning-warning::before {
+  content: "CAUTION — ";
+  font-weight: 800;
+}
+
+.warning-error {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35em;
+  background: var(--error-bg);
+  color: var(--error-ink);
+  border: 2px solid var(--error-border);
+  padding-left: calc(var(--space-4) + 10px);
+  font-weight: 800;
+  box-shadow: var(--shadow-card-sm);
+}
+
+/* Hazard-tape stripe down the left edge, drawn first in flex order. */
+.warning-error::before {
+  content: "";
+  order: -2;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--error-stripe-a) 0 6px,
+    var(--error-stripe-b) 6px 12px
+  );
+}
+
+/* "STOP — " label, forced ahead of the message text (an anonymous flex
+   item) which would otherwise sit before a trailing ::after. */
+.warning-error::after {
+  content: "STOP — ";
+  order: -1;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ---------------------------------------------------------------------
+   6. Takeoff screen
+   ------------------------------------------------------------------ */
+
+.takeoff h2 {
+  font-size: 1.3rem;
+}
+
+.room-row {
+  position: relative;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.room-row > input[aria-label="room name"] {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+  border-color: var(--line);
+}
+
+.room-row > label {
+  display: inline-block;
+  width: calc(33.333% - var(--space-2));
+  vertical-align: top;
+  margin-right: var(--space-2);
+}
+
+.room-row > label:last-of-type {
+  margin-right: 0;
+}
+
+fieldset.scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+}
+
+fieldset.scope label:has(> input[type="checkbox"]) {
+  flex: 1 1 90px;
+}
+
+fieldset.products label {
+  margin-bottom: var(--space-4);
+}
+
+fieldset.products label:last-child {
+  margin-bottom: 0;
+}
+
+.room-geometry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-ink);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.openings {
+  margin-top: var(--space-4);
+}
+
+.openings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.opening-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  background: var(--paper-alt);
+  border: 1px solid var(--line-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.opening-row > span {
+  flex-basis: 100%;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+.opening-row label {
+  flex: 1 1 70px;
+  margin-bottom: 0;
+}
+
+.opening-row label:has(> input[type="checkbox"]) {
+  flex-basis: 100%;
+}
+
+.opening-row button[aria-label^="remove"] {
+  flex: 0 0 auto;
+  align-self: flex-end;
+}
+
+.custom-surfaces {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 3px solid var(--line);
+}
+
+.custom-surfaces h3 {
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.custom-surface-row {
+  background: var(--paper-alt);
+  border: 1px solid var(--line-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.custom-surface-row label {
+  margin-bottom: var(--space-3);
+}
+
+.custom-surface-row label:last-of-type {
+  margin-bottom: 0;
+}
+
+/* The sticky totals bar — the number he watches change while he types.
+   Sticks to the viewport bottom on mobile, stays dark/high-contrast in
+   both themes so it always reads over whatever is scrolling behind it. */
+.totals {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-5) calc(-1 * var(--space-4)) calc(-1 * var(--space-6));
+  padding: var(--space-4) var(--space-4)
+    calc(var(--space-4) + env(safe-area-inset-bottom));
+  background: var(--totals-bg);
+  color: var(--totals-ink);
+  border-top: 3px solid var(--totals-border);
+  box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.35);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.totals [data-testid="total-price"] {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--totals-hero);
+}
+
+/* ---------------------------------------------------------------------
+   7. Results screen
+   ------------------------------------------------------------------ */
+
+.results h2 {
+  font-size: 1.3rem;
+}
+
+.results .warnings-errors {
+  margin-top: 0;
+}
+
+.labor,
+.materials,
+.total {
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.labor h3,
+.materials h3,
+.total h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-bottom: var(--space-3);
+}
+
+.labor p {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.labor [data-testid="labor-cost"],
+.materials [data-testid="material-cost"] {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 0;
+}
+
+.labor [data-testid="hours-total"] {
+  font-size: 1.05rem;
+}
+
+.total {
+  background: var(--totals-bg);
+  color: var(--totals-ink);
+  border-color: var(--totals-border);
+}
+
+.total h3 {
+  color: var(--totals-ink);
+  opacity: 0.75;
+}
+
+.total [data-testid="grand-total"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-weight: 900;
+  color: var(--totals-hero);
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------
+   8. Responsive tables (materials / price book / closeout)
+   Below 640px these render as stacked cards instead of a table a thumb
+   has to scroll sideways to read. At and above 640px they stay tables,
+   wrapped in a horizontally-scrolling container as a safety net so the
+   page body itself never scrolls sideways.
+   ------------------------------------------------------------------ */
+
+.table-scroll {
+  width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+td input,
+td select {
+  margin-top: 0;
+}
+
+@media (min-width: 640px) {
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 2px solid var(--line);
+    border-radius: var(--radius);
+  }
+
+  .table-scroll table {
+    min-width: 480px;
+  }
+
+  .table-scroll th:first-child,
+  .table-scroll td:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--paper);
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--paper-alt);
+  }
+
+  .table-scroll th:first-child,
+  tbody tr:nth-child(even) td:first-child {
+    background: var(--paper-alt);
+  }
+}
+
+@media (max-width: 639px) {
+  .table-scroll table,
+  .table-scroll thead,
+  .table-scroll tbody,
+  .table-scroll tr {
+    display: block;
+    width: 100%;
+  }
+
+  .table-scroll thead {
+    display: none;
+  }
+
+  .table-scroll tr {
+    background: var(--paper);
+    border: 2px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card-sm);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+
+  .table-scroll td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    border-bottom: 1px solid var(--line-soft);
+    padding: var(--space-2) 0;
+    text-align: right;
+  }
+
+  .table-scroll td:last-child {
+    border-bottom: none;
+  }
+
+  .table-scroll td input,
+  .table-scroll td select {
+    width: auto;
+    flex: 1 1 auto;
+    max-width: 60%;
+  }
+
+  /* First cell in every row = the row's title: full width, no caption. */
+  .table-scroll td:first-child {
+    display: block;
+    text-align: left;
+    font-weight: 800;
+    font-size: 1.05rem;
+    border-bottom: 2px solid var(--line);
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+
+  .table-scroll td:first-child input {
+    width: 100%;
+    max-width: none;
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  /* Materials table: Product | Area | Coats | Gallons | Cost */
+  .materials td:nth-child(2)::before {
+    content: "Area";
+  }
+  .materials td:nth-child(3)::before {
+    content: "Coats";
+  }
+  .materials td:nth-child(4)::before {
+    content: "Gallons";
+  }
+  .materials td:nth-child(5)::before {
+    content: "Cost";
+  }
+  .materials td:nth-child(5) {
+    font-weight: 800;
+  }
+
+  /* Price book table: Product | List/gal | Yours/gal | Pack size */
+  .settings td:nth-child(2)::before {
+    content: "List / gal";
+  }
+  .settings td:nth-child(3)::before {
+    content: "Your price / gal";
+  }
+  .settings td:nth-child(4)::before {
+    content: "Pack size";
+  }
+  .settings td:nth-child(3) input {
+    font-weight: 800;
+  }
+
+  /* Close-out table: Product | Estimated | Purchased | Drift */
+  .closeout td:nth-child(2)::before {
+    content: "Estimated (gal)";
+  }
+  .closeout td:nth-child(3)::before {
+    content: "Purchased (gal)";
+  }
+  .closeout td:nth-child(3) input {
+    width: 100%;
+    max-width: none;
+  }
+  .closeout td:nth-child(4) {
+    display: block;
+    text-align: left;
+  }
+
+  td::before {
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+  }
+}
+
+.drift-note {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------------
+   9. Settings screen
+   ------------------------------------------------------------------ */
+
+.settings h2 {
+  font-size: 1.2rem;
+  margin-top: var(--space-6);
+}
+
+.settings h2:first-child {
+  margin-top: 0;
+}
+
+.settings > label {
+  background: var(--paper);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.settings [data-testid="trim-rate-note"] {
+  margin: var(--space-3) 0;
+}
+
+/* ---------------------------------------------------------------------
+   10. Close-out screen
+   ------------------------------------------------------------------ */
+
+.closeout h2 {
+  font-size: 1.3rem;
+}
+
+.closeout > label {
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.closeout > label input {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.drift {
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-ink);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.drift [data-testid="finish-coverage"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+}
+
+/* ---------------------------------------------------------------------
+   11. Quick estimate screen
+   ------------------------------------------------------------------ */
+
+.quick {
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4);
+}
+
+.quick h2 {
+  font-size: 1.3rem;
+}
+
+.quick [data-testid="quick-total"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-weight: 900;
+  color: var(--accent);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+/* ---------------------------------------------------------------------
+   12. Wider screens — laptop at the kitchen table
+   ------------------------------------------------------------------ */
+
+@media (min-width: 640px) {
+  main {
+    padding: var(--space-5) var(--space-5) var(--space-6);
+  }
+
+  .room-row > label {
+    width: calc(25% - var(--space-2));
+  }
+
+  fieldset.products {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  fieldset.products label {
+    flex: 1 1 0;
+    margin-bottom: 0;
+  }
+
+  .totals {
+    margin-left: calc(-1 * var(--space-5));
+    margin-right: calc(-1 * var(--space-5));
+    padding-left: var(--space-5);
+    padding-right: var(--space-5);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+}
+
+@media (min-width: 900px) {
+  main {
+    max-width: 900px;
+  }
+}

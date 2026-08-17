@@ -82,33 +82,35 @@ export function ResultsScreen({ project }: { project: Project }) {
 
       <section className="materials">
         <h3>Materials</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Area</th>
-              <th>Coats</th>
-              <th>Gallons</th>
-              <th>Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pricing.materialLines.map((line) => {
-              const req = materials.requirements.find(
-                (r) => r.productId === line.productId,
-              );
-              return (
-                <tr key={line.productId}>
-                  <td>{line.name}</td>
-                  <td>{req ? formatArea(req.coatedArea) : "—"}</td>
-                  <td>{req?.coats ?? "—"}</td>
-                  <td>{line.gallons}</td>
-                  <td>{formatMoney(line.lineCost)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Area</th>
+                <th>Coats</th>
+                <th>Gallons</th>
+                <th>Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pricing.materialLines.map((line) => {
+                const req = materials.requirements.find(
+                  (r) => r.productId === line.productId,
+                );
+                return (
+                  <tr key={line.productId}>
+                    <td>{line.name}</td>
+                    <td>{req ? formatArea(req.coatedArea) : "—"}</td>
+                    <td>{req?.coats ?? "—"}</td>
+                    <td>{line.gallons}</td>
+                    <td>{formatMoney(line.lineCost)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         <p data-testid="material-cost">{formatMoney(pricing.materialCost)}</p>
       </section>
 

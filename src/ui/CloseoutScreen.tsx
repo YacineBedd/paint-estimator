@@ -123,33 +123,37 @@ export function CloseoutScreen({ project, onChange }: Props) {
         />
       </label>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Estimated (gal)</th>
-            <th>Actually bought (gal)</th>
-            <th>Drift</th>
-          </tr>
-        </thead>
-        <tbody>
-          {estimate.materials.requirements.map((r) => {
-            const product = project.priceBook.find((p) => p.id === r.productId);
-            const name = product?.name ?? r.productId;
-            return (
-              <GallonsRow
-                key={r.productId}
-                productId={r.productId}
-                name={name}
-                estimatedGallons={r.gallons}
-                purchased={actuals.gallonsPurchased[r.productId] ?? 0}
-                drift={coverageById.get(r.productId)}
-                onCommit={(gallons) => setGallons(r.productId, gallons)}
-              />
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Estimated (gal)</th>
+              <th>Actually bought (gal)</th>
+              <th>Drift</th>
+            </tr>
+          </thead>
+          <tbody>
+            {estimate.materials.requirements.map((r) => {
+              const product = project.priceBook.find(
+                (p) => p.id === r.productId,
+              );
+              const name = product?.name ?? r.productId;
+              return (
+                <GallonsRow
+                  key={r.productId}
+                  productId={r.productId}
+                  name={name}
+                  estimatedGallons={r.gallons}
+                  purchased={actuals.gallonsPurchased[r.productId] ?? 0}
+                  drift={coverageById.get(r.productId)}
+                  onCommit={(gallons) => setGallons(r.productId, gallons)}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
       {report === null || report.finishGallonsActual === 0 ? (
         <p>Enter what you actually used to calibrate future estimates.</p>

@@ -169,25 +169,27 @@ export function SettingsScreen({ project, onChange }: Props) {
 
       <h2>Price book</h2>
       <p className="note">All prices are per gallon.</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>List (per gallon)</th>
-            <th>Yours (per gallon)</th>
-            <th>Pack size</th>
-          </tr>
-        </thead>
-        <tbody>
-          {project.priceBook.map((p) => (
-            <PriceRow
-              key={p.id}
-              product={p}
-              onChange={(patch) => setProduct(p.id, patch)}
-            />
-          ))}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>List (per gallon)</th>
+              <th>Yours (per gallon)</th>
+              <th>Pack size</th>
+            </tr>
+          </thead>
+          <tbody>
+            {project.priceBook.map((p) => (
+              <PriceRow
+                key={p.id}
+                product={p}
+                onChange={(patch) => setProduct(p.id, patch)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
