@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { computeMaterials } from "../materials";
 import { computeGeometry } from "../geometry";
 import { goldenJob, GOLDEN_EXPECTED } from "../__fixtures__/goldenJob";
+import type { CustomSurface } from "../types";
 
 const rates = goldenJob.rateProfile;
 const geometry = computeGeometry(goldenJob.rooms, rates);
@@ -121,6 +122,105 @@ describe("computeMaterials — regressions", () => {
     const g = computeGeometry(rooms, rates);
     const r = computeMaterials(rooms, g, [], rates, goldenJob.priceBook);
     expect(r.requirements.find((x) => x.productId === "K380")).toBeUndefined();
+  });
+
+  // F7: room trim and a custom surface sharing the same product must each
+  // keep their own coat count. A naive "resolve one coat count per product"
+  // implementation lets whichever source is found last (or the custom
+  // surface unconditionally) win, silently changing gallons for the other
+  // source's area too.
+  it("keeps distinct coat counts when room trim and a custom surface share a product", () => {
+    const roomWithTrim = {
+      ...goldenJob.rooms[1]!,
+      id: "trimroom",
+      walls: [10, 10],
+      ceilingHeight: 8,
+      scope: {
+        walls: false,
+        ceiling: false,
+        trim: true,
+        primer: "none" as const,
+      },
+      trimProductId: "550",
+    };
+    // rates.coats.trim === 1, so room trim contributes at 1 coat.
+    const rooms = [roomWithTrim];
+    const customSurfaces: CustomSurface[] = [
+      {
+        id: "cs-x",
+        name: "Garage door",
+        area: 100,
+        rateMinPerSqFt: 0.75,
+        productId: "550",
+        coats: 3,
+        includeInPrimer: false,
+      },
+    ];
+    const g = computeGeometry(rooms, rates);
+    const r = computeMaterials(
+      rooms,
+      g,
+      customSurfaces,
+      rates,
+      goldenJob.priceBook,
+    );
+    const trimReq = r.requirements.find((x) => x.productId === "550")!;
+
+    const roomTrimArea = g[0]!.trimArea; // baseboard+casing at girth 0.5, no slab
+    expect(roomTrimArea).toBeGreaterThan(0);
+
+    const expectedCoatedArea = roomTrimArea * 1 + 100 * 3;
+    const expectedArea = roomTrimArea + 100;
+    expect(trimReq.coatedArea).toBeCloseTo(expectedArea, 4);
+    expect(trimReq.rawGallons).toBeCloseTo(
+      expectedCoatedArea / trimReq.coverage,
+      4,
+    );
+    expect(trimReq.gallons).toBe(
+      Math.ceil(expectedCoatedArea / trimReq.coverage),
+    );
+  });
+
+  // F4: primer was computed on grossWallArea while finish paint used
+  // netWallArea, so a room with windows/doors got primed on top of glass and
+  // door slabs that finish paint never touches. Primer must track the SAME
+  // net surface as finish so the two move together.
+  it("primer tracks netWallArea (openings deducted), not grossWallArea, when a room has openings", () => {
+    const room = {
+      ...goldenJob.rooms[1]!,
+      id: "primerRoom",
+      walls: [10, 10],
+      ceilingHeight: 8,
+      scope: {
+        walls: true,
+        ceiling: false,
+        trim: false,
+        primer: "full" as const,
+      },
+      wallProductId: "549",
+      openings: [
+        {
+          id: "o1",
+          kind: "window" as const,
+          quantity: 4,
+          width: 3,
+          height: 4,
+          paintSlab: false,
+          casedSides: 1 as const,
+        },
+      ],
+    };
+    const g = computeGeometry([room], rates);
+    const r = computeMaterials([room], g, [], rates, goldenJob.priceBook);
+    const primer = r.requirements.find((x) => x.productId === "K380")!;
+    const finish = r.requirements.find((x) => x.productId === "549")!;
+
+    // Sanity check the fixture actually has openings deducted.
+    expect(g[0]!.netWallArea).toBeLessThan(g[0]!.grossWallArea);
+
+    expect(primer.coatedArea).toBeCloseTo(g[0]!.netWallArea, 4);
+    expect(primer.coatedArea).toBeCloseTo(finish.coatedArea, 4);
+    expect(primer.coatedArea).not.toBeCloseTo(g[0]!.grossWallArea, 4);
   });
 
   it("never rounds a nonzero area down to zero gallons", () => {
