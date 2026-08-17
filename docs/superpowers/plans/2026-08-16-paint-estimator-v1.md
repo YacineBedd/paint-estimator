@@ -417,6 +417,13 @@ const doorsAndTrim: CustomSurface = {
   includeInPrimer: true,
 };
 
+/**
+ * DELIBERATELY DUPLICATES `src/data/defaults.ts` — do not refactor into a
+ * shared module. This fixture is a frozen record of the Estimator.xlsx job.
+ * If it imported the editable defaults, changing his prices in Settings would
+ * silently move the golden test's expected numbers, and the one artifact that
+ * proves we reproduce his spreadsheet would stop proving anything.
+ */
 export const goldenPriceBook: PaintProduct[] = [
   {
     id: "K380",
@@ -1189,10 +1196,13 @@ describe("computeMaterials — golden job gallons", () => {
     expect(req("K508").gallons).toBe(3); // 823.36×2/550 = 2.994
   });
 
-  it("returns Aura 2, not the sheet's 1 — his ROUNDDOWN is the bug", () => {
+  // His sheet ROUNDDOWNs this one line to 1 gallon; we round up like every
+  // other product. GOLDEN_EXPECTED.sheetGallonsForAura records what his sheet
+  // said, so the divergence is asserted against it rather than hardcoded here.
+  it("returns Aura 2, diverging from the sheet's 1 — his ROUNDDOWN is the bug", () => {
     expect(req("K532").rawGallons).toBeCloseTo(1.7985, 3);
     expect(req("K532").gallons).toBe(2);
-    expect(GOLDEN_EXPECTED.sheetGallonsForAura).toBe(1);
+    expect(req("K532").gallons).not.toBe(GOLDEN_EXPECTED.sheetGallonsForAura);
   });
 
   it("uses the 550 coverageOverride for Aura, not 500", () => {
@@ -1458,7 +1468,7 @@ describe("G2 — calculated gallons match his D column", () => {
 
   it("Aura 2 — the one deliberate divergence, his sheet ROUNDDOWNs to 1", () => {
     expect(gallons("K532")).toBe(2);
-    expect(GOLDEN_EXPECTED.sheetGallonsForAura).toBe(1);
+    expect(gallons("K532")).not.toBe(GOLDEN_EXPECTED.sheetGallonsForAura);
   });
 });
 
@@ -1545,9 +1555,17 @@ describe("warnings", () => {
 });
 
 describe("G3 — $995.22 is an input, never an output", () => {
-  it("does not claim to derive the purchased-materials figure", () => {
-    // 14 calculated gallons at his prices != 12 purchased gallons at his prices.
-    expect(estimate.pricing.materialCost).not.toBeCloseTo(995.22, 2);
+  it("derives materials from calculated gallons: $932.72", () => {
+    // 5 primer @42 + 4 walls @71.25 + 1 trim @80.74 + 2 Aura @84.74
+    // + 3 ceiling @62.50 = 932.72
+    expect(estimate.pricing.materialCost).toBeCloseTo(932.72, 2);
+  });
+
+  it("does not reproduce his $995.22, which came from 12 PURCHASED gallons", () => {
+    expect(estimate.pricing.materialCost).not.toBeCloseTo(
+      GOLDEN_EXPECTED.materialCostFromActuals,
+      2,
+    );
   });
 });
 ```
@@ -1968,6 +1986,12 @@ export const DEFAULT_RATE_PROFILE: RateProfile = {
   coats: { walls: 1, trim: 1, ceilings: 2, specialty: 2 },
 };
 
+/**
+ * Mirrors `src/engine/__fixtures__/goldenJob.ts` by design, and the duplication
+ * is intentional — see the note there. This list is the painter's EDITABLE
+ * starting point; the fixture is a frozen historical record. They begin
+ * identical and are expected to diverge as he updates prices.
+ */
 export const DEFAULT_PRICE_BOOK: PaintProduct[] = [
   {
     id: "K380",
