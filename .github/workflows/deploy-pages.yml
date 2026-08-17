@@ -1,0 +1,78 @@
+name: Deploy to GitHub Pages
+
+# Vercel already deploys this app from the repo root on every push — see the
+# Vercel project settings, not a workflow file here. This workflow adds a
+# second, independent deployment target (a GitHub Pages project site served
+# from /paint-estimator/) and must not interfere with Vercel's build.
+#
+# Note: GitHub Pages on a private repository requires GitHub Pro/Team/
+# Enterprise (or the repo being made public). Until then this workflow will
+# run but the deploy-pages step will fail — that's expected, not a bug in
+# this file.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment should ever be in flight at a time. A second
+# push while a deploy is still running cancels the queued (not yet started)
+# run rather than letting two deploys race each other for the same
+# environment.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Tests run before the build and the job has no `continue-on-error`,
+      # so a failing test suite fails this step and the workflow stops here
+      # — build and deploy never run, so a broken build can never reach
+      # Pages.
+      - name: Run tests
+        run: npm test
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Build (Pages base path)
+        run: npm run build
+        env:
+          GITHUB_PAGES: "true"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload build artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
