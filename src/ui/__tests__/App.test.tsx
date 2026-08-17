@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { saveProject, loadProject } from "../../data/storage";
+import * as storageModule from "../../data/storage";
 import { newProject } from "../../data/defaults";
 import type { Room } from "../../engine/types";
 
@@ -83,6 +84,98 @@ describe("App — persistence (F1)", () => {
       },
       { timeout: 2000 },
     );
+  });
+});
+
+// R1: the 500ms autosave debounce is a data-loss window — if the tab or
+// window closes before it elapses, the pending edit is lost. These tests
+// prove the fix flushes synchronously on the signals that precede a real
+// tab close (beforeunload, visibilitychange → "hidden") and on unmount,
+// without writing again when there is nothing pending.
+describe("App — autosave flush on unload/unmount (R1)", () => {
+  const stubVisibilityHidden = (): (() => void) => {
+    const original =
+      Object.getOwnPropertyDescriptor(document, "visibilityState") ??
+      Object.getOwnPropertyDescriptor(Document.prototype, "visibilityState");
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "hidden",
+    });
+    return () => {
+      if (original) {
+        Object.defineProperty(document, "visibilityState", original);
+      } else {
+        delete (document as { visibilityState?: string }).visibilityState;
+      }
+    };
+  };
+
+  it("flushes a pending edit on beforeunload before the debounce elapses", async () => {
+    saveProject(newProject("Unload test", "p1"));
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /add room/i }));
+    const nameInput = screen.getByLabelText(/room name/i);
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Kitchen");
+
+    // Fired synchronously, well inside the 500ms debounce window.
+    window.dispatchEvent(new Event("beforeunload"));
+
+    const saved = loadProject("p1");
+    expect(saved?.rooms[0]?.name).toBe("Kitchen");
+  });
+
+  it("flushes a pending edit on visibilitychange → hidden before the debounce elapses (the mobile Safari path)", async () => {
+    saveProject(newProject("Visibility test", "p1"));
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /add room/i }));
+    const nameInput = screen.getByLabelText(/room name/i);
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Bathroom");
+
+    const restoreVisibility = stubVisibilityHidden();
+    document.dispatchEvent(new Event("visibilitychange"));
+    restoreVisibility();
+
+    const saved = loadProject("p1");
+    expect(saved?.rooms[0]?.name).toBe("Bathroom");
+  });
+
+  it("flushes a pending edit on unmount before the debounce elapses", async () => {
+    saveProject(newProject("Unmount test", "p1"));
+    const { unmount } = render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /add room/i }));
+    const nameInput = screen.getByLabelText(/room name/i);
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Hallway");
+
+    unmount();
+
+    const saved = loadProject("p1");
+    expect(saved?.rooms[0]?.name).toBe("Hallway");
+  });
+
+  it("does not write again on unload/visibilitychange once the pending autosave has already landed", async () => {
+    saveProject(newProject("No redundant write test", "p1"));
+    const saveSpy = vi.spyOn(storageModule, "saveProject");
+    render(<App />);
+
+    // Mounting always schedules one autosave (see the comment in App.tsx);
+    // let that land first so pendingRef is false before we probe for
+    // redundant writes.
+    await waitFor(() => expect(saveSpy).toHaveBeenCalled(), { timeout: 2000 });
+    const callsAfterInitialSave = saveSpy.mock.calls.length;
+
+    window.dispatchEvent(new Event("beforeunload"));
+    const restoreVisibility = stubVisibilityHidden();
+    document.dispatchEvent(new Event("visibilitychange"));
+    restoreVisibility();
+
+    expect(saveSpy.mock.calls.length).toBe(callsAfterInitialSave);
+    saveSpy.mockRestore();
   });
 });
 

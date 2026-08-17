@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Project } from "../engine/types";
 import { newProject } from "../data/defaults";
@@ -50,14 +50,71 @@ export default function App() {
   // but the previous pending save is cancelled first, so a burst of
   // keystrokes only ever writes once, ~500ms after the user stops typing —
   // not once per keystroke.
+  //
+  // R1: that debounce window is a data-loss hole — if the tab or window
+  // closes before it elapses, the pending edit is never written. `flush`
+  // below writes immediately, and is wired up (via the effect after this
+  // one) to `beforeunload`, `visibilitychange` → "hidden", and unmount.
+  //
+  // `pendingRef` tracks whether there is an unsaved edit outstanding, so
+  // `flush` is a no-op (and safe to call more than once) when nothing has
+  // changed since the last write. `projectRef` mirrors the latest `project`
+  // synchronously on every render (not inside an effect), so `flush` — which
+  // must be callable from a unmount/unload cleanup that does not itself
+  // depend on `project` — always writes the freshest value, not a value
+  // captured by a stale closure.
+  const pendingRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const projectRef = useRef(project);
+  projectRef.current = project;
+
+  const flush = useCallback(() => {
+    if (!pendingRef.current) return;
+    pendingRef.current = false;
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    saveProject(projectRef.current);
+    saveRateProfile(projectRef.current.rateProfile);
+    savePriceBook(projectRef.current.priceBook);
+  }, []);
+
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      saveProject(project);
-      saveRateProfile(project.rateProfile);
-      savePriceBook(project.priceBook);
-    }, AUTOSAVE_DEBOUNCE_MS);
-    return () => clearTimeout(timeout);
-  }, [project]);
+    pendingRef.current = true;
+    timeoutRef.current = setTimeout(flush, AUTOSAVE_DEBOUNCE_MS);
+    // This cleanup fires on every project change (to reschedule the
+    // debounce), not just on unmount — so it only cancels the pending
+    // timer. It must NOT flush here, or every keystroke would write
+    // synchronously and defeat the debounce. Unmount-time flushing is
+    // handled by the separate, mount-once effect below instead.
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [project, flush]);
+
+  // Mount-once: listens for the page going away and flushes any pending
+  // autosave synchronously. `visibilitychange` → "hidden" is the documented,
+  // reliable signal on mobile Safari (a job-site painter's likely device);
+  // `beforeunload` is kept too for desktop/other browsers. Both funnel
+  // through the same idempotent `flush`, so firing twice (or firing once
+  // more on unmount) is harmless.
+  useEffect(() => {
+    const handleBeforeUnload = () => flush();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      flush();
+    };
+  }, [flush]);
 
   const handleExport = () => {
     const json = exportProject(project);
