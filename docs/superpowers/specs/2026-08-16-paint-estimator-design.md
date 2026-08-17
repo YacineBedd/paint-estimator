@@ -93,6 +93,8 @@ Rooms are assumed rectangular: `wall3 = wall1`, `wall4 = wall2`.
 
 ### 4.3 Reference job outcome (the golden test)
 
+**Labor is fully derived from geometry — the engine must reproduce it exactly:**
+
 | Figure                      | Value          |
 | --------------------------- | -------------- |
 | Total painted surface       | 5,433.16 sq ft |
@@ -100,10 +102,25 @@ Rooms are assumed rectangular: `wall3 = wall1`, `wall4 = wall2`.
 | Hours billed (room roundup) | 42             |
 | Travel hours                | 5              |
 | **Total billed hours**      | **47**         |
-| Labor                       | $3,525.00      |
-| Materials (his cost)        | $995.22        |
-| Materials (at list)         | $1,014.91      |
-| **Job total**               | **$4,520.22**  |
+| **Labor**                   | **$3,525.00**  |
+
+**Materials are two different things in his sheet, and they must not be conflated:**
+
+| Figure                                    | Value         | Source                                    |
+| ----------------------------------------- | ------------- | ----------------------------------------- |
+| Gallons _calculated_ from area            | 14            | `D` column (`ROUNDUP` of area ÷ coverage) |
+| Gallons _actually purchased_              | 12            | `E` column, hand-entered after the job    |
+| `H38` — 14 calculated gal at _list_ price | $1,014.91     | `D × G`                                   |
+| `J38` — 12 purchased gal at _his_ price   | $995.22       | `E × I`                                   |
+| **Job total** (`O37` = `O19` + `J38`)     | **$4,520.22** | labor + purchased materials               |
+
+The $4,520.22 total therefore uses **actual purchases**, not the sheet's own calculated
+gallons. The engine cannot derive $995.22 from geometry — that figure is a
+_calibration input_, not an expected output. See §12 for how the golden test splits.
+
+Note also that `H38` and `J38` are not comparable: 14 gallons at list versus 12 at cost
+differ in both quantity and price, so the sheet's list-vs-cost comparison does not
+actually measure his supplier discount.
 
 His effective rate: **$0.94/sq ft of painted surface** (0.75 min × $75/hr).
 All-in realized: **$0.83/sq ft**.
@@ -132,27 +149,38 @@ These are the reason the app is worth building. Each maps to a structural fix in
    the house. Calculated 4.48 gal → `ROUNDUP` → 5. He actually used **1**. Repaints are
    spot-primed; the sheet assumes full prime.
 
-3. **Real coverage is 388 sq ft/gal, not 500.** Cell `C39` computes total area ÷ gallons
-   actually used. He is already hand-running a calibration loop with no mechanism to act
-   on the result.
+3. **Finish paint under-ordered by 22%, masked by the primer over-order.** Excluding
+   primer, the sheet calculates 9 gallons of finish paint; he actually bought **11** —
+   short on both ceilings (3 calc / 4 actual) and Aura (1 calc / 2 actual). Netted against
+   the 4-gallon primer surplus, total calculated (14) and purchased (12) look roughly
+   consistent, so neither error is visible. Two large errors in opposite directions
+   cancelling into a plausible aggregate. Operationally this is a mid-job trip back to the
+   store.
 
-4. **No door or window deduction.** Wall area = perimeter × height, full stop. This is
+4. **`C39` does not measure what it appears to.** It computes `C38 / D38` = 5,433.16 ÷ 14
+   = 388 sq ft/gal — total area over _calculated_ gallons, not the 12 actually purchased.
+   That quantity measures his own `ROUNDUP` waste, not yield. **His real coverage is
+   ~410 sq ft/gal** (4,511.12 sq ft of coated area ÷ 11 finish gallons) against the 500 /
+   550 he assumes. He is hand-running a calibration loop, but against the wrong
+   denominator, and with no mechanism to act on the result.
+
+5. **No door or window deduction.** Wall area = perimeter × height, full stop. This is
    exactly what his email asks for.
 
-5. **Doors and trim are a single opaque fudge.** `H12 = ((3+7)×7)×4 = 280 sq ft`, i.e.
+6. **Doors and trim are a single opaque fudge.** `H12 = ((3+7)×7)×4 = 280 sq ft`, i.e.
    70 sq ft per door. Cannot answer "what if 14 doors" or "no crown moulding," and trim
    cannot be separated from doors.
 
-6. **Room rounding is a hidden ~5% uplift.** 39.9 hrs of work bills as 42. Real margin,
+7. **Room rounding is a hidden ~5% uplift.** 39.9 hrs of work bills as 42. Real margin,
    currently invisible to him.
 
-7. **No sundries, overhead, or explicit profit line.** Tape, plastic, caulk, brushes,
+8. **No sundries, overhead, or explicit profit line.** Tape, plastic, caulk, brushes,
    patching all buried inside the $75/hr.
 
-8. **Column `B` is overloaded** — floor number on room rows, quantity on the doors row
+9. **Column `B` is overloaded** — floor number on room rows, quantity on the doors row
    (`B12 = 4`).
 
-9. **Nine blank template rows are silently summed**, with no indication they are empty.
+10. **Nine blank template rows are silently summed**, with no indication they are empty.
 
 ### 4.6 Validating his fudge factor
 
@@ -243,8 +271,21 @@ separate keys so they persist across jobs. Explicit export/import to file.
 type Project = {
   name: string;
   rooms: Room[];
+  customSurfaces: CustomSurface[]; // see note below
   rateProfile: RateProfile;
   priceBook: PaintProduct[];
+  actuals?: JobActuals; // filled at close-out, §10
+};
+
+// Escape hatch for anything that is not a room: his `Doors & trim` row 12,
+// a garage door, an exterior elevation. Required for the golden test (§12),
+// since row 12 is an explicit 280 sq ft area, not a derived one.
+type CustomSurface = {
+  name: string; // 'Doors & trim'
+  area: number; // 280
+  rateMinPerSqFt: number; // 0.75
+  productId: string; // '550'
+  coats: number;
 };
 
 type Room = {
@@ -282,8 +323,15 @@ type RateProfile = {
   roundRoomHoursUp: true;
   wallCoverage: 500; // sq ft/gal
   ceilingCoverage: 550;
-  spotPrimeFraction: number; // fraction of wall area when primer = 'spot'
+  spotPrimeFraction: 0.22; // derived: 1 gal used ÷ 4.48 calculated, §8.3
   coats: { walls: 1; trim: 1; ceilings: 2; specialty: 2 };
+};
+
+// Recorded at close-out; drives calibration (§10). Never an engine output.
+type JobActuals = {
+  hoursWorked: number;
+  gallonsPurchased: Record<string, number>; // productId → gallons
+  notes?: string;
 };
 
 type PaintProduct = {
@@ -303,8 +351,10 @@ type PaintProduct = {
   the way the stairwell was (defect 1).
 - `scope` makes coverage a property of the room, so the stairwell bug is unrepresentable.
 - `wallProductId` replaces hand-maintained sum ranges for product assignment.
-- `openings` deducts from wall area _and_ generates trim from one source (defect 4, 5).
-- `floor` and `quantity` are separate fields (defect 8).
+- `openings` deducts from wall area _and_ generates trim from one source (defects 5, 6).
+- `floor` and `quantity` are separate fields (defect 9).
+- `actuals` makes the calibration input a first-class field rather than a column he
+  overwrites by hand (defects 3, 4).
 
 ---
 
@@ -342,18 +392,25 @@ laborCost   = totalBilled × laborRate
   between profit and loss. It is now its own editable field so **he** can raise it once
   he can see it broken out. The app does not change it for him.
 
-- **`primer` defaults to `'spot'` for repaint rooms** at `spotPrimeFraction` of wall area,
-  addressing the 5 gal → 1 gal gap (defect 2). `'full'` remains available for new drywall.
-  This is the one default that intentionally departs from the sheet; the Results screen
-  shows the difference explicitly.
+- **`primer` defaults to `'spot'` for repaint rooms** at `spotPrimeFraction = 0.22`,
+  addressing the 5 gal → 1 gal gap (defect 2). The 0.22 is not a guess: it is his own job's
+  1 gallon actually used ÷ 4.48 gallons calculated for a full prime. `'full'` remains
+  available for new drywall. This is the one default that intentionally departs from the
+  sheet, so the Results screen shows the difference explicitly, and §12 pins the departure
+  with its own test.
 
 ### 8.4 Materials & pricing
 
 ```
-gallons(product) = (assignedArea × coats) / coverage      // ROUNDUP, per his sheet
+gallons(product) = ROUNDUP((assignedArea × coats) / coverage)
 materialCost     = Σ gallons × product.actualPrice
 total            = laborCost + materialCost
 ```
+
+`ROUNDUP` applies to every product. His sheet is inconsistent here — `D34` uses
+`ROUNDDOWN` for the Aura line while every other product rounds up, which is part of why he
+came up a gallon short on bathrooms (defect 3). The engine always rounds up; you cannot
+buy a partial gallon.
 
 ---
 
@@ -384,22 +441,36 @@ shown.
 
 ## 10. Calibration loop
 
-He already does this by hand — `C39` computes 388 sq ft/gal actual against the 500 he
-assumes, and he tracks calculated vs. "Actual" gallons per product. He has the feedback
-signal and no mechanism to act on it.
+He already does this by hand — he tracks calculated vs. "Actual" gallons per product, and
+`C39` attempts a coverage figure. He has the feedback signal, the wrong denominator, and no
+mechanism to act on the result (defect 4).
 
-At close-out the app compares estimate to reality and reports drift:
+**The correct measurement**, which the app computes automatically:
 
-> Coverage ran 388 sq ft/gal, not 500 — you under-ordered by 29% on 3 of your last 4
-> jobs. Update default?
+```
+realCoverage(product) = (assignedArea × coats) / actualGallonsPurchased
+```
+
+Coated area, not raw area; gallons purchased, not gallons calculated. On the reference job
+that is 4,511.12 sq ft ÷ 11 finish gallons = **410 sq ft/gal**, against the 500 / 550 he
+assumes — not the 388 his sheet reports, which is really a measure of his own `ROUNDUP`
+waste.
+
+Primer is calibrated separately and never blended into the finish-coat figure. Averaging
+them is exactly what let a 4-gallon primer surplus hide a 22% finish-paint shortfall.
+
+At close-out the app reports drift per product:
+
+> Ceilings ran 410 sq ft/gal, not 550. You bought 4 gal, the estimate said 3.
+> Update coverage default for K508?
 
 Three values calibrate off real outcomes:
 
-| Value                            | Calibrates from                  |
-| -------------------------------- | -------------------------------- |
-| Coverage per product             | actual gallons vs. area painted  |
-| Production rate                  | actual hours vs. area painted    |
-| Quick-mode floor→wall multiplier | every completed detailed takeoff |
+| Value                            | Calibrates from                              |
+| -------------------------------- | -------------------------------------------- |
+| Coverage per product             | coated area ÷ gallons purchased, per product |
+| Production rate                  | actual hours vs. area painted                |
+| Quick-mode floor→wall multiplier | every completed detailed takeoff             |
 
 **This loop is the entire differentiator.** The BM and SW calculators are static formulas
 that disclaim themselves as rough. This one gets measurably more accurate with every job
@@ -422,13 +493,34 @@ It lands as a second producer of `Room[]` against the already-proven engine (§6
 
 ## 12. Testing
 
-**Golden test, gating all releases:** the `Estimator.xlsx` job, entered with default
-settings and no openings, must produce 39.9145 hrs / 47 billed / $3,525.00 labor /
-$995.22 materials / **$4,520.22 total**. If this fails, nothing ships.
+The golden test splits in three, because his sheet's total mixes a derived figure with a
+hand-entered one (§4.3). Conflating them would let a broken materials calculation pass.
 
-Rationale: if his first estimate disagrees with his spreadsheet and he cannot see exactly
-why, he stops trusting the tool that day. Every fix in §4.5 is opt-in and visible, never
-a silent difference.
+**G1 — Labor, exact. Gates all releases.**
+The `Estimator.xlsx` job entered with default settings, no openings, and `Doors & trim` as
+a `CustomSurface` of 280 sq ft, must produce **39.9145 hrs worked / 42 billed / 5 travel /
+47 total / $3,525.00**. Every figure is derivable from geometry. If this fails, nothing
+ships.
+
+**G2 — Calculated gallons, exact.**
+With `primer: 'full'` (matching his sheet rather than the new default), per-product
+calculated gallons must equal his `D` column: primer 5, walls 4, trim 1, Aura 1,
+ceilings 3 — except Aura, which the engine returns as **2**, not 1, because his sheet uses
+`ROUNDDOWN` there (§8.4). That single deliberate divergence is asserted explicitly so it
+can never be mistaken for a regression.
+
+**G3 — The $995.22 is an input, not an output.**
+That figure is 12 gallons _actually purchased_ at his prices. The engine must never be
+asserted to produce it. It is fed in as `JobActuals` and the test verifies the calibration
+loop derives **~410 sq ft/gal** finish coverage and flags the 22% finish-paint shortfall
+(defect 3).
+
+**Departure test.** With the shipped default `primer: 'spot'` at 0.22, primer must come out
+at 1 gallon — matching what he actually bought, against the 5 his sheet calculated.
+
+Rationale for the whole approach: if his first estimate disagrees with his spreadsheet and
+he cannot see exactly why, he stops trusting the tool that day. Every fix in §4.5 is opt-in
+and visible, never a silent difference.
 
 Additionally:
 
@@ -461,7 +553,8 @@ To confirm directly with him:
 2. **Trim rate** — does trim genuinely run at the same 0.75 min/sq ft as rolling walls, or
    has that been absorbed into the roundup margin?
 3. **Spot priming** — roughly what fraction of wall area does he actually prime on a
-   typical repaint? (Sets `spotPrimeFraction`.)
+   typical repaint? Default is 0.22, back-solved from his own job (1 gal used of 4.48
+   calculated), but that is one data point.
 4. **Sundries** — what does he spend per job on tape, plastic, caulk, brushes, patching,
    and is it currently buried in the $75/hr?
 5. **The roundup** — is billing 42 hrs for 39.9 hrs worked deliberate margin or an
@@ -469,11 +562,15 @@ To confirm directly with him:
 6. **Ceiling height** — always 8 ft, or does he hit cathedral/vaulted, and how does he
    price those?
 7. **Occupied vs. empty homes** — is there a furniture-moving/masking premium?
-8. **Coverage** — is he aware his real yield is 388 sq ft/gal, and does he want the app to
-   default to his measured number or keep the manufacturer's 500?
-9. **Multiple crew** — does the 8-hour day mean one painter or a crew, and does crew size
-   vary by job?
-10. **Currency and taxes** — CAD confirmed? Are GST/QST shown on estimates?
+8. **Coverage** — his real yield is ~410 sq ft/gal, not the 500 / 550 he assumes. Does he
+   want the app to default to his measured number or keep the manufacturer's figure? Worth
+   asking what he does today when he runs short mid-job.
+9. **The bathroom and ceiling shortfall** — he bought 2 gal of Aura against 1 calculated,
+   and 4 gal of ceiling against 3. Is that consistent across jobs, a dark-to-light colour
+   change, or specific to this house?
+10. **Multiple crew** — does the 8-hour day mean one painter or a crew, and does crew size
+    vary by job?
+11. **Currency and taxes** — CAD confirmed? Are GST/QST shown on estimates?
 
 ---
 
