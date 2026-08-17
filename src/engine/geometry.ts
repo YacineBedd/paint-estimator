@@ -9,15 +9,35 @@ export function roomPerimeter(room: Room): number {
   return walls.reduce((sum, w) => sum + w, 0);
 }
 
-const openingArea = (o: Opening): number => o.width * o.height * o.quantity;
+// A negative width/height/quantity is only reachable through a hand-edited
+// or corrupted import file (the UI enforces min={0}), but the engine must
+// not depend on the UI for its invariants: a negative value here would
+// silently subtract casing/trim/slab area (and thus hours/money) instead of
+// contributing nothing. Clamp each dimension individually, the same way
+// room walls and ceiling height are clamped above.
+const clampNonNegative = (n: number): number => Math.max(0, n);
 
-const casingLinFt = (o: Opening): number =>
-  o.kind === "door" || o.kind === "passage"
-    ? (2 * o.height + o.width) * o.casedSides * o.quantity
-    : 2 * (o.width + o.height) * o.casedSides * o.quantity;
+const openingArea = (o: Opening): number =>
+  clampNonNegative(o.width) *
+  clampNonNegative(o.height) *
+  clampNonNegative(o.quantity);
+
+const casingLinFt = (o: Opening): number => {
+  const width = clampNonNegative(o.width);
+  const height = clampNonNegative(o.height);
+  const quantity = clampNonNegative(o.quantity);
+  return o.kind === "door" || o.kind === "passage"
+    ? (2 * height + width) * o.casedSides * quantity
+    : 2 * (width + height) * o.casedSides * quantity;
+};
 
 const slabArea = (o: Opening): number =>
-  o.kind === "door" && o.paintSlab ? o.width * o.height * 2 * o.quantity : 0;
+  o.kind === "door" && o.paintSlab
+    ? clampNonNegative(o.width) *
+      clampNonNegative(o.height) *
+      2 *
+      clampNonNegative(o.quantity)
+    : 0;
 
 /**
  * Computes wall, ceiling, and trim geometry for one room, net of openings.

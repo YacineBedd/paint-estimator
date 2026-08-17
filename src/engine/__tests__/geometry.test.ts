@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { computeRoomGeometry, roomPerimeter } from "../geometry";
 import { goldenJob, GOLDEN_EXPECTED } from "../__fixtures__/goldenJob";
-import type { Room, RateProfile } from "../types";
+import type { Room, RateProfile, Opening } from "../types";
 
 const rates: RateProfile = goldenJob.rateProfile;
 
@@ -342,6 +342,87 @@ describe("openings", () => {
 // computeRoomGeometry: a 4-entry walls array must be ordered [a, b, a, b]
 // (alternating opposite sides), not grouped pairs. [10, 12, 10, 12] is the
 // same rectangle as [10, 12] and must produce the same 120 sq ft ceiling.
+// R2: a negative Opening.width/height/quantity is only reachable through a
+// hand-edited or corrupted import file (importProject does not validate
+// numeric ranges), but the engine must not depend on the UI's min={0} for
+// its own invariants. A negative dimension must never subtract casing/trim/
+// slab area — it must behave as if that opening contributed nothing.
+describe("opening dimension clamping (R2)", () => {
+  const base: Room = {
+    ...goldenJob.rooms[1]!,
+    id: "t3",
+    walls: [10, 10],
+    ceilingHeight: 8,
+    scope: { walls: true, ceiling: true, trim: true, primer: "full" },
+  };
+
+  const doorOpening: Opening = {
+    id: "o1",
+    kind: "door",
+    quantity: 1,
+    width: 3,
+    height: 7,
+    paintSlab: true,
+    casedSides: 2,
+  };
+
+  it("clamps a negative opening width to 0 rather than subtracting area", () => {
+    const room: Room = {
+      ...base,
+      openings: [{ ...doorOpening, width: -3 }],
+    };
+    const g = computeRoomGeometry(room, rates);
+    expect(g.openingArea).toBeGreaterThanOrEqual(0);
+    expect(g.casingLinFt).toBeGreaterThanOrEqual(0);
+    expect(g.doorSlabArea).toBeGreaterThanOrEqual(0);
+    expect(g.trimArea).toBeGreaterThanOrEqual(0);
+  });
+
+  it("clamps a negative opening height to 0 rather than subtracting area", () => {
+    const room: Room = {
+      ...base,
+      openings: [{ ...doorOpening, height: -7 }],
+    };
+    const g = computeRoomGeometry(room, rates);
+    expect(g.openingArea).toBeGreaterThanOrEqual(0);
+    expect(g.casingLinFt).toBeGreaterThanOrEqual(0);
+    expect(g.doorSlabArea).toBeGreaterThanOrEqual(0);
+    expect(g.trimArea).toBeGreaterThanOrEqual(0);
+  });
+
+  it("clamps a negative opening quantity to contribute nothing rather than subtracting", () => {
+    const room: Room = {
+      ...base,
+      openings: [{ ...doorOpening, quantity: -2 }],
+    };
+    const zeroQtyRoom: Room = {
+      ...base,
+      openings: [{ ...doorOpening, quantity: 0 }],
+    };
+    const g = computeRoomGeometry(room, rates);
+    const zeroG = computeRoomGeometry(zeroQtyRoom, rates);
+    // openingArea/casingLinFt/doorSlabArea flow through the three clamped
+    // helpers (openingArea, casingLinFt, slabArea) and so match the
+    // zero-quantity room exactly. trimArea also folds in room-level
+    // baseboard (perimeter minus door widths), which is a separate,
+    // unclamped computation outside this fix's scope — so it is only
+    // asserted non-negative, not equal to the zero-quantity case.
+    expect(g.openingArea).toBe(zeroG.openingArea);
+    expect(g.casingLinFt).toBe(zeroG.casingLinFt);
+    expect(g.doorSlabArea).toBe(zeroG.doorSlabArea);
+    expect(g.trimArea).toBeGreaterThanOrEqual(0);
+  });
+
+  it("never lets netWallArea exceed grossWallArea as a result of any clamping", () => {
+    const room: Room = {
+      ...base,
+      openings: [{ ...doorOpening, width: -3, height: -7, quantity: -4 }],
+    };
+    const g = computeRoomGeometry(room, rates);
+    expect(g.netWallArea).toBeLessThanOrEqual(g.grossWallArea);
+  });
+});
+
 describe("ceiling area — 4-entry walls ordering contract", () => {
   it("derives ceilingArea from walls[0] * walls[1] for an alternating 4-entry list", () => {
     const room: Room = {
