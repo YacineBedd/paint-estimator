@@ -32,11 +32,12 @@ export function computeLabor(
   });
 
   const customRows: RoomLabor[] = customSurfaces.map((cs) => {
-    // Custom surfaces (e.g. "Doors & trim") are billed at the profile's
-    // trimRate, not their own rateMinPerSqFt field — the test
-    // "applies the trim rate independently of the wall rate" overrides
-    // rates.trimRate and expects the custom-surface row to follow it.
-    const totalHours = hours(cs.area, rates.trimRate);
+    // Custom surfaces carry their own production rate (rateMinPerSqFt) —
+    // that is the entire reason CustomSurface is a separate type from a
+    // room's trim: a garage door or an exterior elevation runs at a
+    // different rate than interior trim. rates.trimRate governs room trim
+    // area only (see roomRows above) and never applies to custom surfaces.
+    const totalHours = hours(cs.area, cs.rateMinPerSqFt);
     return {
       roomId: cs.id,
       wallHours: 0,

@@ -1008,13 +1008,26 @@ describe("computeLabor — options", () => {
     expect(result.totalBilledHours).toBeGreaterThanOrEqual(result.hoursWorked);
   });
 
-  it("applies the trim rate independently of the wall rate", () => {
+  // A CustomSurface carries its OWN production rate — that is the point of the
+  // type. A garage door or an exterior elevation runs at a different rate than
+  // interior trim. rates.trimRate governs room trim only, never custom surfaces.
+  it("bills a custom surface at its own rate, not the global trim rate", () => {
+    const faster = computeLabor(
+      geometry,
+      [{ ...goldenJob.customSurfaces[0]!, rateMinPerSqFt: 1.5 }],
+      rates,
+    );
+    const trimRow = faster.rooms.find((x) => x.roomId === "cs1");
+    expect(trimRow!.totalHours).toBeCloseTo(7.0, 4); // 280 × 1.5 / 60
+  });
+
+  it("ignores rates.trimRate when billing a custom surface", () => {
     const r = computeLabor(geometry, goldenJob.customSurfaces, {
       ...rates,
       trimRate: 1.5,
     });
     const trimRow = r.rooms.find((x) => x.roomId === "cs1");
-    expect(trimRow!.totalHours).toBeCloseTo(7.0, 4); // 280 × 1.5 / 60
+    expect(trimRow!.totalHours).toBeCloseTo(3.5, 4); // 280 × 0.75 / 60, unchanged
   });
 
   it("returns zeros for an empty job", () => {
