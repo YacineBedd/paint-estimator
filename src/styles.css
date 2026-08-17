@@ -240,7 +240,7 @@ main {
     calc(var(--tabbar-total) + var(--safe-b) + var(--space-5));
 }
 
-main:has(.totals) {
+main.with-totals {
   padding-bottom: calc(
     var(--tabbar-total) + var(--totals-h) + var(--safe-b) + var(--space-5)
   );
@@ -656,6 +656,28 @@ button[aria-label^="remove"] {
   letter-spacing: 0.03em;
 }
 
+/* Repeats of one code collapse into a single banner (see
+   src/ui/warningGroups.tsx), but a house mid-entry can still raise several
+   DISTINCT codes at once. Past the first two, the rest fold behind this row
+   instead of stacking indefinitely — warnings can no longer push every room
+   below the fold no matter how many different things are wrong at once. */
+.warnings li.warnings-more {
+  padding: 0;
+}
+
+.warnings-more button {
+  width: 100%;
+  min-height: var(--tap);
+  background: var(--paper-alt);
+  color: var(--ink-soft);
+  border: 2px dashed var(--line-soft);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* ---------------------------------------------------------------------
    8. Takeoff — the room list
    One row per room, hairline-separated inside a single card, so ten rooms
@@ -796,10 +818,6 @@ button[aria-label^="remove"] {
   border-left: 2.5px solid currentcolor;
   border-bottom: 2.5px solid currentcolor;
   transform: rotate(45deg);
-}
-
-.remove-room {
-  font-size: 0.85rem;
 }
 
 .room-name {
@@ -986,6 +1004,57 @@ fieldset.products label {
 
 fieldset.products label:last-child {
   margin-bottom: 0;
+}
+
+/* Removing a room used to sit top-right in `.editor-bar`, directly opposite
+   the back button — both inside a phone's one-handed thumb arc, one of them
+   destructive and immediate. A mis-tap while standing in a client's hallway
+   could erase a measured room with no way back. It now lives down here, at
+   the bottom of the editor, well clear of the back button, and the first
+   tap only arms a confirm step rather than removing anything. */
+.editor-danger {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line-soft);
+}
+
+.editor-danger .remove-room {
+  width: 100%;
+}
+
+.remove-confirm {
+  padding: var(--space-3) var(--space-4);
+  background: var(--error-bg);
+  color: var(--error-ink);
+  border: 2px solid var(--error-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card-sm);
+}
+
+.remove-confirm p {
+  margin: 0 0 var(--space-3);
+  font-weight: 700;
+}
+
+.remove-confirm-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.remove-confirm-actions button {
+  flex: 1 1 0;
+}
+
+.cancel-remove {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.confirm-remove {
+  background: var(--error-border);
+  color: var(--error-ink);
+  border-color: var(--error-ink);
+  font-weight: 800;
 }
 
 /* ---------------------------------------------------------------------

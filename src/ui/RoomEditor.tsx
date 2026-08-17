@@ -7,6 +7,7 @@ import type {
 } from "../engine/types";
 import { OpeningsEditor } from "./OpeningsEditor";
 import { Disclosure } from "./Disclosure";
+import { WarningList } from "./warningGroups";
 import { formatArea } from "./format";
 
 interface Props {
@@ -117,6 +118,14 @@ export function RoomEditor({
   onRemove,
   onBack,
 }: Props) {
+  // Removing a room used to sit top-right, directly opposite the back
+  // button — both inside a phone's one-handed thumb arc, one of them
+  // destructive and immediate. A mis-tap reaching for "back" while standing
+  // in a client's hallway could erase a room he'd just spent five minutes
+  // measuring, with no way back. It now lives at the bottom of the editor,
+  // away from the back button, and needs a second, explicit tap to confirm.
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+
   const productName = (id: string) =>
     priceBook.find((p) => p.id === id)?.name ?? id;
 
@@ -143,14 +152,6 @@ export function RoomEditor({
           <span aria-hidden="true" className="back-chevron" />
           Rooms
         </button>
-        <button
-          type="button"
-          className="remove-room"
-          aria-label="remove room"
-          onClick={onRemove}
-        >
-          Remove
-        </button>
       </div>
 
       <input
@@ -160,15 +161,7 @@ export function RoomEditor({
         onChange={(e) => onChange({ ...room, name: e.target.value })}
       />
 
-      {warnings.length > 0 && (
-        <ul className="warnings">
-          {warnings.map((w, i) => (
-            <li key={`${w.code}-${i}`} className={`warning-${w.level}`}>
-              {w.message}
-            </li>
-          ))}
-        </ul>
-      )}
+      <WarningList warnings={warnings} />
 
       <div className="gauges">
         <Gauge
@@ -270,6 +263,40 @@ export function RoomEditor({
           Painting {scopeSummary || "nothing"} in this room.
         </p>
       </Disclosure>
+
+      <div className="editor-danger">
+        {confirmingRemove ? (
+          <div className="remove-confirm">
+            <p>Remove this room? This can&rsquo;t be undone.</p>
+            <div className="remove-confirm-actions">
+              <button
+                type="button"
+                className="cancel-remove"
+                onClick={() => setConfirmingRemove(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="confirm-remove"
+                aria-label="confirm remove room"
+                onClick={onRemove}
+              >
+                Yes, remove room
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="remove-room"
+            aria-label="remove room"
+            onClick={() => setConfirmingRemove(true)}
+          >
+            Remove room
+          </button>
+        )}
+      </div>
     </div>
   );
 }

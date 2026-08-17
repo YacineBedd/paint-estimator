@@ -181,7 +181,13 @@ export default function App() {
 
   return (
     <>
-      <main>
+      {/* Takeoff is the only screen with a fixed `.totals` bar stacked above
+          the tab bar; `main` needs to reserve that extra height as bottom
+          padding so the room list's last row can scroll fully clear of it
+          instead of sitting partly behind it. An explicit class (rather than
+          `main:has(.totals)`) keeps that guaranteed regardless of :has()
+          support on whatever browser is in a client's house that day. */}
+      <main className={screen === "takeoff" ? "with-totals" : undefined}>
         {screen === "takeoff" ? (
           <TakeoffScreen project={project} onChange={setProject} />
         ) : screen === "estimate" ? (

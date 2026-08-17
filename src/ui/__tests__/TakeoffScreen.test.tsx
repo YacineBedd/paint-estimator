@@ -96,16 +96,37 @@ describe("TakeoffScreen", () => {
     expect(screen.getByLabelText(/wall 2/i)).toHaveValue(null);
   });
 
+  // Removing a room now lives at the bottom of the editor (not opposite the
+  // back button) and needs a second, explicit tap to confirm — a mis-tap
+  // should never silently erase a measured room.
   it("removes a room", async () => {
     const onChange = vi.fn();
     render(<TakeoffScreen project={goldenJob} onChange={onChange} />);
     await openRoom("r1");
     await userEvent.click(
-      screen.getAllByRole("button", { name: /remove room/i })[0]!,
+      screen.getAllByRole("button", { name: /^remove room$/i })[0]!,
+    );
+    // The first tap only arms the confirmation; it must not remove anything
+    // by itself.
+    expect(onChange).not.toHaveBeenCalled();
+    await userEvent.click(
+      screen.getByRole("button", { name: /confirm remove room/i }),
     );
     expect(onChange.mock.calls[0]![0].rooms).toHaveLength(
       goldenJob.rooms.length - 1,
     );
+  });
+
+  it("cancels a room removal without erasing the room", async () => {
+    const onChange = vi.fn();
+    render(<TakeoffScreen project={goldenJob} onChange={onChange} />);
+    await openRoom("r1");
+    await userEvent.click(
+      screen.getAllByRole("button", { name: /^remove room$/i })[0]!,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/room name/i)).toBeInTheDocument();
   });
 
   it("edits a wall dimension and reports it upward", async () => {

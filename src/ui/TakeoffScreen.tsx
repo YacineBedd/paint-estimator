@@ -7,6 +7,7 @@ import { RoomList } from "./RoomList";
 import { CustomSurfacesEditor } from "./CustomSurfacesEditor";
 import { QuickEstimateScreen } from "./QuickEstimateScreen";
 import { Disclosure } from "./Disclosure";
+import { WarningList } from "./warningGroups";
 import { formatHours, formatMoney } from "./format";
 
 interface Props {
@@ -148,15 +149,7 @@ export function TakeoffScreen({ project, onChange }: Props) {
             </span>
           </header>
 
-          {estimate.warnings.length > 0 && (
-            <ul className="warnings">
-              {estimate.warnings.map((w, i) => (
-                <li key={`${w.code}-${i}`} className={`warning-${w.level}`}>
-                  {w.message}
-                </li>
-              ))}
-            </ul>
-          )}
+          <WarningList warnings={estimate.warnings} />
 
           <RoomList
             rooms={project.rooms}

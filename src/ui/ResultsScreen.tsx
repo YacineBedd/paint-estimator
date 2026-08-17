@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Project } from "../engine/types";
 import { computeEstimate } from "../engine/estimate";
+import { WarningList } from "./warningGroups";
 import { formatArea, formatCrewDays, formatHours, formatMoney } from "./format";
 
 interface ReadoutProps {
@@ -56,36 +57,16 @@ export function ResultsScreen({ project }: { project: Project }) {
       {/* F6: a hard OPENINGS_EXCEED_WALL validation error must not sit
           silently behind a printed total — this was previously only shown
           on TakeoffScreen. Errors get their own visually distinct list so
-          they can't be mistaken for informational notices. */}
-      {warnings.length > 0 && (
-        <>
-          {warnings.some((w) => w.level === "error") && (
-            <ul
-              className="warnings warnings-errors"
-              data-testid="results-errors"
-            >
-              {warnings
-                .filter((w) => w.level === "error")
-                .map((w, i) => (
-                  <li key={`${w.code}-${i}`} className="warning-error">
-                    {w.message}
-                  </li>
-                ))}
-            </ul>
-          )}
-          {warnings.some((w) => w.level !== "error") && (
-            <ul className="warnings">
-              {warnings
-                .filter((w) => w.level !== "error")
-                .map((w, i) => (
-                  <li key={`${w.code}-${i}`} className={`warning-${w.level}`}>
-                    {w.message}
-                  </li>
-                ))}
-            </ul>
-          )}
-        </>
-      )}
+          they can't be mistaken for informational notices. Both lists are
+          grouped and height-capped by <WarningList> exactly like Takeoff's,
+          so the same empty price book that used to stack four STOP banners
+          here too now renders one. */}
+      <WarningList
+        warnings={warnings.filter((w) => w.level === "error")}
+        className="warnings-errors"
+        testId="results-errors"
+      />
+      <WarningList warnings={warnings.filter((w) => w.level !== "error")} />
 
       <section className="labor">
         <h3>Labor</h3>
