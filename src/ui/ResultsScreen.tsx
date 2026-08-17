@@ -1,7 +1,39 @@
 import { useMemo } from "react";
 import type { Project } from "../engine/types";
 import { computeEstimate } from "../engine/estimate";
-import { formatArea, formatHours, formatMoney } from "./format";
+import { formatArea, formatCrewDays, formatHours, formatMoney } from "./format";
+
+interface ReadoutProps {
+  label: string;
+  testId: string;
+  value: string;
+  note?: string;
+  strong?: boolean;
+}
+
+/**
+ * One line of the labour breakdown: a caption in the normal text face and a
+ * figure in tabular mono.
+ *
+ * Previously the whole section was set in mono, sentences and all, so a
+ * client-facing labour breakdown read like terminal output. Mono is for
+ * digits — it exists here so columns of figures line up, not as a typeface
+ * for prose.
+ */
+function Readout({ label, testId, value, note, strong }: ReadoutProps) {
+  return (
+    <div className="readout">
+      <span className="readout-label">{label}</span>
+      <span
+        className={`readout-value${strong ? " readout-value-strong" : ""}`}
+        data-testid={testId}
+      >
+        {value}
+      </span>
+      {note && <span className="readout-note">{note}</span>}
+    </div>
+  );
+}
 
 export function ResultsScreen({ project }: { project: Project }) {
   const estimate = useMemo(
@@ -16,7 +48,10 @@ export function ResultsScreen({ project }: { project: Project }) {
 
   return (
     <div className="results">
-      <h2>Estimate</h2>
+      <header className="screen-head">
+        <h2>Estimate</h2>
+        <span className="screen-head-meta">{project.name}</span>
+      </header>
 
       {/* F6: a hard OPENINGS_EXCEED_WALL validation error must not sit
           silently behind a printed total — this was previously only shown
@@ -54,30 +89,50 @@ export function ResultsScreen({ project }: { project: Project }) {
 
       <section className="labor">
         <h3>Labor</h3>
-        <p>
-          <span data-testid="hours-worked">
-            {formatHours(labor.hoursWorked)} hrs worked
-          </span>
-          {" · "}
-          <span data-testid="hours-billed-rooms">
-            {labor.billedRoomHours} billed
-          </span>
-          {" (rounding "}
-          <span data-testid="roundup-value">{formatMoney(roundupValue)}</span>
-          {") · "}
-          <span data-testid="hours-travel">{labor.travelHours} travel</span>
-          {" ("}
-          <span data-testid="travel-value">{formatMoney(travelValue)}</span>
-          {") · "}
-          <strong data-testid="hours-total">
-            {labor.totalBilledHours} total
-          </strong>
+
+        <div className="readouts">
+          <Readout
+            label="Hours worked"
+            testId="hours-worked"
+            value={`${formatHours(labor.hoursWorked)} hrs worked`}
+          />
+          <Readout
+            label="Billed, rooms"
+            testId="hours-billed-rooms"
+            value={`${labor.billedRoomHours} billed`}
+            note="rounded up per room"
+          />
+          <Readout
+            label="Value of that rounding"
+            testId="roundup-value"
+            value={formatMoney(roundupValue)}
+          />
+          <Readout
+            label="Travel"
+            testId="hours-travel"
+            value={`${labor.travelHours} travel`}
+            note={`${formatCrewDays(labor.days)} at ${project.rateProfile.travelHoursPerDay} hr each`}
+          />
+          <Readout
+            label="Value of travel"
+            testId="travel-value"
+            value={formatMoney(travelValue)}
+          />
+          <Readout
+            label="Total billed hours"
+            testId="hours-total"
+            value={`${labor.totalBilledHours} total`}
+            strong
+          />
+        </div>
+
+        <p className="labor-days">
+          <span data-testid="crew-days">{formatCrewDays(labor.days)}</span> at{" "}
+          {project.rateProfile.hoursPerDay} hrs a day.
         </p>
-        <p>
-          <span data-testid="crew-days">{labor.days}</span> crew-days at{" "}
-          {project.rateProfile.hoursPerDay} hrs
+        <p className="section-total" data-testid="labor-cost">
+          {formatMoney(pricing.laborCost)}
         </p>
-        <p data-testid="labor-cost">{formatMoney(pricing.laborCost)}</p>
       </section>
 
       <section className="materials">
@@ -111,7 +166,9 @@ export function ResultsScreen({ project }: { project: Project }) {
             </tbody>
           </table>
         </div>
-        <p data-testid="material-cost">{formatMoney(pricing.materialCost)}</p>
+        <p className="section-total" data-testid="material-cost">
+          {formatMoney(pricing.materialCost)}
+        </p>
       </section>
 
       <section className="total">

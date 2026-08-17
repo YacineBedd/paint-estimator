@@ -23,6 +23,24 @@ describe("ResultsScreen", () => {
   it("shows 5 crew-days", () => {
     render(<ResultsScreen project={goldenJob} />);
     expect(screen.getByTestId("crew-days")).toHaveTextContent("5");
+    // ...spelled with a hyphen, not an em-dash: "crew-day" is a compound
+    // noun, and this line goes in front of a client.
+    expect(screen.getByTestId("crew-days")).toHaveTextContent("5 crew-days");
+  });
+
+  // The unit used to be hard-coded plural with the wrong dash, so a
+  // one-day job read "1 crew—days".
+  it("says '1 crew-day', singular, on a one-day job", () => {
+    const oneDay = {
+      ...goldenJob,
+      rooms: [goldenJob.rooms[0]!],
+      customSurfaces: [],
+    };
+    render(<ResultsScreen project={oneDay} />);
+    const crewDays = screen.getByTestId("crew-days");
+    expect(crewDays).toHaveTextContent("1 crew-day");
+    expect(crewDays.textContent).not.toMatch(/crew-days/);
+    expect(crewDays.textContent).not.toMatch(/—/);
   });
 
   it("lists every product with its gallons", () => {
