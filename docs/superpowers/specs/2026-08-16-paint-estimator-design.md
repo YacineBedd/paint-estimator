@@ -145,17 +145,24 @@ These are the reason the app is worth building. Each maps to a structural fix in
    under-orders paint and under-bills labor. Bathrooms are correctly excluded (they take
    Aura); stairs are simply missing from the range.
 
-2. **Primer massively over-calculated.** `H20 = SUM(H3:H19)` primes every wall surface in
-   the house. Calculated 4.48 gal → `ROUNDUP` → 5. He actually used **1**. Repaints are
-   spot-primed; the sheet assumes full prime.
+2. **The primer row uses a different unit, unmarked.** Every finish product's `I/G` ratio
+   sits between 0.74 and 0.85 — his supplier discount. Primer's is exactly **6.00**, so
+   `I31 = $210` is not a per-gallon price in the same unit as the rest. It is a 5-gallon
+   pail, which means `E31 = 1` records **one pail (5 gal)**, not one gallon. Reading it as
+   5 gal @ $42/gal reproduces `J38 = $995.22` exactly.
 
-3. **Finish paint under-ordered by 22%, masked by the primer over-order.** Excluding
-   primer, the sheet calculates 9 gallons of finish paint; he actually bought **11** —
-   short on both ceilings (3 calc / 4 actual) and Aura (1 calc / 2 actual). Netted against
-   the 4-gallon primer surplus, total calculated (14) and purchased (12) look roughly
-   consistent, so neither error is visible. Two large errors in opposite directions
-   cancelling into a plausible aggregate. Operationally this is a mid-job trip back to the
-   store.
+   Consequence: primer is _not_ over-ordered — calculated 5 gal, purchased 5 gal. An
+   earlier reading of this spec claimed a 5× over-order; that was wrong and is retracted.
+   The real defect is that gallons and pails share one column with nothing distinguishing
+   them, which is a live mis-ordering hazard. The engine prices strictly per gallon and
+   makes pack size an explicit product property (§7). Whether he actually spot-primes
+   remains an open question for the call (§14 Q3), not something to infer from this sheet.
+
+3. **Finish paint under-ordered by 22%.** Excluding primer, the sheet calculates 9 gallons
+   of finish paint; he actually bought **11** — short on both ceilings (3 calc / 4 actual)
+   and Aura (1 calc / 2 actual). Unlike the primer row, every finish product uses
+   consistent per-gallon units and a consistent discount ratio, so this comparison is
+   sound. Operationally, a 22% shortfall is a mid-job trip back to the store.
 
 4. **`C39` does not measure what it appears to.** It computes `C38 / D38` = 5,433.16 ÷ 14
    = 388 sq ft/gal — total area over _calculated_ gallons, not the 12 actually purchased.
@@ -323,7 +330,8 @@ type RateProfile = {
   roundRoomHoursUp: true;
   wallCoverage: 500; // sq ft/gal
   ceilingCoverage: 550;
-  spotPrimeFraction: 0.22; // derived: 1 gal used ÷ 4.48 calculated, §8.3
+  spotPrimeFraction: number; // available, NOT defaulted — see §8.3 and §14 Q3
+  trimGirthFt: 0.5; // lin ft → area for baseboard and casing; see §4.6
   coats: { walls: 1; trim: 1; ceilings: 2; specialty: 2 };
 };
 
@@ -338,9 +346,10 @@ type PaintProduct = {
   id: string; // 'K532'
   name: string; // 'Aura Bath & Spa'
   use: "primer" | "wall" | "ceiling" | "trim" | "specialty";
-  listPrice: number;
-  actualPrice: number; // what he pays — estimates use this
-  coverageOverride?: number;
+  listPrice: number; // per gallon, always
+  actualPrice: number; // per gallon, always — what he pays; estimates use this
+  packSizeGal: number; // 1 or 5; display/ordering only, never pricing (defect 2)
+  coverageOverride?: number; // K532 Aura → 550
   priceUpdatedAt: string;
 };
 ```
@@ -392,12 +401,18 @@ laborCost   = totalBilled × laborRate
   between profit and loss. It is now its own editable field so **he** can raise it once
   he can see it broken out. The app does not change it for him.
 
-- **`primer` defaults to `'spot'` for repaint rooms** at `spotPrimeFraction = 0.22`,
-  addressing the 5 gal → 1 gal gap (defect 2). The 0.22 is not a guess: it is his own job's
-  1 gallon actually used ÷ 4.48 gallons calculated for a full prime. `'full'` remains
-  available for new drywall. This is the one default that intentionally departs from the
-  sheet, so the Results screen shows the difference explicitly, and §12 pins the departure
-  with its own test.
+- **`primer` defaults to `'full'`, matching his sheet.** `'spot'` is implemented and
+  selectable per room, but ships with no default fraction. An earlier draft defaulted to
+  `'spot'` at 0.22, derived from a misreading of the primer row's units (defect 2) — his
+  calculated and purchased primer actually agree at 5 gallons, so there is no evidence in
+  this sheet that he spot-primes at all. Setting `spotPrimeFraction` is a call question
+  (§14 Q3), not an inference.
+
+**Net effect: v1 ships with no deliberate numerical departures from his spreadsheet.** The
+sole computational divergence is `ROUNDUP` on the Aura line where he used `ROUNDDOWN`
+(§8.4), and it is asserted explicitly in §12. Everything else in §4.5 is fixed
+structurally — made impossible to represent, or surfaced as a warning — rather than by
+silently changing a number.
 
 ### 8.4 Materials & pricing
 
@@ -503,11 +518,10 @@ a `CustomSurface` of 280 sq ft, must produce **39.9145 hrs worked / 42 billed / 
 ships.
 
 **G2 — Calculated gallons, exact.**
-With `primer: 'full'` (matching his sheet rather than the new default), per-product
-calculated gallons must equal his `D` column: primer 5, walls 4, trim 1, Aura 1,
-ceilings 3 — except Aura, which the engine returns as **2**, not 1, because his sheet uses
-`ROUNDDOWN` there (§8.4). That single deliberate divergence is asserted explicitly so it
-can never be mistaken for a regression.
+Per-product calculated gallons must equal his `D` column: primer **5**, walls **4**,
+trim **1**, ceilings **3** — and Aura **2**, where his sheet says 1 because it uses
+`ROUNDDOWN` there (§8.4). That single divergence is asserted explicitly so it can never be
+mistaken for a regression.
 
 **G3 — The $995.22 is an input, not an output.**
 That figure is 12 gallons _actually purchased_ at his prices. The engine must never be
@@ -515,8 +529,8 @@ asserted to produce it. It is fed in as `JobActuals` and the test verifies the c
 loop derives **~410 sq ft/gal** finish coverage and flags the 22% finish-paint shortfall
 (defect 3).
 
-**Departure test.** With the shipped default `primer: 'spot'` at 0.22, primer must come out
-at 1 gallon — matching what he actually bought, against the 5 his sheet calculated.
+**No departure test is needed**, because v1 ships no deliberate numerical departures
+(§8.3). G2's Aura assertion is the only divergence in the suite.
 
 Rationale for the whole approach: if his first estimate disagrees with his spreadsheet and
 he cannot see exactly why, he stops trusting the tool that day. Every fix in §4.5 is opt-in
@@ -552,25 +566,28 @@ To confirm directly with him:
    does he price by elevation area, by siding type, or per sq ft of floor?
 2. **Trim rate** — does trim genuinely run at the same 0.75 min/sq ft as rolling walls, or
    has that been absorbed into the roundup margin?
-3. **Spot priming** — roughly what fraction of wall area does he actually prime on a
-   typical repaint? Default is 0.22, back-solved from his own job (1 gal used of 4.48
-   calculated), but that is one data point.
-4. **Sundries** — what does he spend per job on tape, plastic, caulk, brushes, patching,
+3. **Spot priming** — does he spot-prime on repaints, or full-prime? His sheet full-primes
+   and his purchase matches it, so there is no evidence either way. If he spot-primes, what
+   fraction of wall area? This sets `spotPrimeFraction`, which currently has no default.
+4. **Primer units** — confirm `K380` at $210 is a 5-gallon pail (≈$42/gal) and not
+   something else. The whole materials total reconciles on that reading, but it is an
+   inference, and the sheet records it as quantity "1" in the same column as gallons.
+5. **Sundries** — what does he spend per job on tape, plastic, caulk, brushes, patching,
    and is it currently buried in the $75/hr?
-5. **The roundup** — is billing 42 hrs for 39.9 hrs worked deliberate margin or an
+6. **The roundup** — is billing 42 hrs for 39.9 hrs worked deliberate margin or an
    artifact? Does he want it kept?
-6. **Ceiling height** — always 8 ft, or does he hit cathedral/vaulted, and how does he
+7. **Ceiling height** — always 8 ft, or does he hit cathedral/vaulted, and how does he
    price those?
-7. **Occupied vs. empty homes** — is there a furniture-moving/masking premium?
-8. **Coverage** — his real yield is ~410 sq ft/gal, not the 500 / 550 he assumes. Does he
+8. **Occupied vs. empty homes** — is there a furniture-moving/masking premium?
+9. **Coverage** — his real yield is ~410 sq ft/gal, not the 500 / 550 he assumes. Does he
    want the app to default to his measured number or keep the manufacturer's figure? Worth
    asking what he does today when he runs short mid-job.
-9. **The bathroom and ceiling shortfall** — he bought 2 gal of Aura against 1 calculated,
-   and 4 gal of ceiling against 3. Is that consistent across jobs, a dark-to-light colour
-   change, or specific to this house?
-10. **Multiple crew** — does the 8-hour day mean one painter or a crew, and does crew size
+10. **The bathroom and ceiling shortfall** — he bought 2 gal of Aura against 1 calculated,
+    and 4 gal of ceiling against 3. Is that consistent across jobs, a dark-to-light colour
+    change, or specific to this house?
+11. **Multiple crew** — does the 8-hour day mean one painter or a crew, and does crew size
     vary by job?
-11. **Currency and taxes** — CAD confirmed? Are GST/QST shown on estimates?
+12. **Currency and taxes** — CAD confirmed? Are GST/QST shown on estimates?
 
 ---
 
