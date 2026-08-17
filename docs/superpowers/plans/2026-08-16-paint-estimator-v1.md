@@ -6,7 +6,12 @@
 
 **Architecture:** A pure TypeScript engine (`src/engine/`) with zero framework dependencies and zero I/O takes geometry + rates in and returns a full itemized estimate. A React UI consumes it. The engine is the product; the UI is a shell around it. `geometry.ts` is the sole seam the phase-2 floorplan sketcher will touch.
 
-**Tech Stack:** TypeScript 5.x (strict), React 18, Vite 5, Vitest, `localStorage`. No backend, no database, no auth, no runtime dependencies in the engine.
+**Tech Stack:** TypeScript 5.9 (strict), React 19, Vite 8, Vitest, `localStorage`. No backend, no database, no auth, no runtime dependencies in the engine.
+
+> **Version note (amended during Task 1).** This originally read "React 18, Vite 5" —
+> a stale constraint. React 19 and Vite 8 are current and are what the project ships on.
+> TypeScript is deliberately held at **5.9**, not 7.x: TS 7 is a ground-up reimplementation,
+> and taking that unknown into the remaining tasks buys the estimator nothing.
 
 **Spec:** `docs/superpowers/specs/2026-08-16-paint-estimator-design.md`
 
@@ -417,6 +422,13 @@ const doorsAndTrim: CustomSurface = {
   includeInPrimer: true,
 };
 
+/**
+ * DELIBERATELY DUPLICATES `src/data/defaults.ts` — do not refactor into a
+ * shared module. This fixture is a frozen record of the Estimator.xlsx job.
+ * If it imported the editable defaults, changing his prices in Settings would
+ * silently move the golden test's expected numbers, and the one artifact that
+ * proves we reproduce his spreadsheet would stop proving anything.
+ */
 export const goldenPriceBook: PaintProduct[] = [
   {
     id: "K380",
@@ -996,13 +1008,26 @@ describe("computeLabor — options", () => {
     expect(result.totalBilledHours).toBeGreaterThanOrEqual(result.hoursWorked);
   });
 
-  it("applies the trim rate independently of the wall rate", () => {
+  // A CustomSurface carries its OWN production rate — that is the point of the
+  // type. A garage door or an exterior elevation runs at a different rate than
+  // interior trim. rates.trimRate governs room trim only, never custom surfaces.
+  it("bills a custom surface at its own rate, not the global trim rate", () => {
+    const faster = computeLabor(
+      geometry,
+      [{ ...goldenJob.customSurfaces[0]!, rateMinPerSqFt: 1.5 }],
+      rates,
+    );
+    const trimRow = faster.rooms.find((x) => x.roomId === "cs1");
+    expect(trimRow!.totalHours).toBeCloseTo(7.0, 4); // 280 × 1.5 / 60
+  });
+
+  it("ignores rates.trimRate when billing a custom surface", () => {
     const r = computeLabor(geometry, goldenJob.customSurfaces, {
       ...rates,
       trimRate: 1.5,
     });
     const trimRow = r.rooms.find((x) => x.roomId === "cs1");
-    expect(trimRow!.totalHours).toBeCloseTo(7.0, 4); // 280 × 1.5 / 60
+    expect(trimRow!.totalHours).toBeCloseTo(3.5, 4); // 280 × 0.75 / 60, unchanged
   });
 
   it("returns zeros for an empty job", () => {
@@ -1189,10 +1214,13 @@ describe("computeMaterials — golden job gallons", () => {
     expect(req("K508").gallons).toBe(3); // 823.36×2/550 = 2.994
   });
 
-  it("returns Aura 2, not the sheet's 1 — his ROUNDDOWN is the bug", () => {
+  // His sheet ROUNDDOWNs this one line to 1 gallon; we round up like every
+  // other product. GOLDEN_EXPECTED.sheetGallonsForAura records what his sheet
+  // said, so the divergence is asserted against it rather than hardcoded here.
+  it("returns Aura 2, diverging from the sheet's 1 — his ROUNDDOWN is the bug", () => {
     expect(req("K532").rawGallons).toBeCloseTo(1.7985, 3);
     expect(req("K532").gallons).toBe(2);
-    expect(GOLDEN_EXPECTED.sheetGallonsForAura).toBe(1);
+    expect(req("K532").gallons).not.toBe(GOLDEN_EXPECTED.sheetGallonsForAura);
   });
 
   it("uses the 550 coverageOverride for Aura, not 500", () => {
@@ -1458,7 +1486,7 @@ describe("G2 — calculated gallons match his D column", () => {
 
   it("Aura 2 — the one deliberate divergence, his sheet ROUNDDOWNs to 1", () => {
     expect(gallons("K532")).toBe(2);
-    expect(GOLDEN_EXPECTED.sheetGallonsForAura).toBe(1);
+    expect(gallons("K532")).not.toBe(GOLDEN_EXPECTED.sheetGallonsForAura);
   });
 });
 
@@ -1545,9 +1573,17 @@ describe("warnings", () => {
 });
 
 describe("G3 — $995.22 is an input, never an output", () => {
-  it("does not claim to derive the purchased-materials figure", () => {
-    // 14 calculated gallons at his prices != 12 purchased gallons at his prices.
-    expect(estimate.pricing.materialCost).not.toBeCloseTo(995.22, 2);
+  it("derives materials from calculated gallons: $932.72", () => {
+    // 5 primer @42 + 4 walls @71.25 + 1 trim @80.74 + 2 Aura @84.74
+    // + 3 ceiling @62.50 = 932.72
+    expect(estimate.pricing.materialCost).toBeCloseTo(932.72, 2);
+  });
+
+  it("does not reproduce his $995.22, which came from 12 PURCHASED gallons", () => {
+    expect(estimate.pricing.materialCost).not.toBeCloseTo(
+      GOLDEN_EXPECTED.materialCostFromActuals,
+      2,
+    );
   });
 });
 ```
@@ -1968,6 +2004,12 @@ export const DEFAULT_RATE_PROFILE: RateProfile = {
   coats: { walls: 1, trim: 1, ceilings: 2, specialty: 2 },
 };
 
+/**
+ * Mirrors `src/engine/__fixtures__/goldenJob.ts` by design, and the duplication
+ * is intentional — see the note there. This list is the painter's EDITABLE
+ * starting point; the fixture is a frozen historical record. They begin
+ * identical and are expected to diverge as he updates prices.
+ */
 export const DEFAULT_PRICE_BOOK: PaintProduct[] = [
   {
     id: "K380",
