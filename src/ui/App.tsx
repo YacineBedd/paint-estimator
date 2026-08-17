@@ -16,12 +16,34 @@ import { TakeoffScreen } from "./TakeoffScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import { CloseoutScreen } from "./CloseoutScreen";
-import { QuickEstimateScreen } from "./QuickEstimateScreen";
 
-type Screen = "takeoff" | "results" | "settings" | "closeout" | "quick";
+type Screen = "takeoff" | "estimate" | "closeout" | "settings";
 
 const PROJECT_ID = "p1";
 const AUTOSAVE_DEBOUNCE_MS = 500;
+
+// Four tabs, fixed to the bottom of the viewport, sized as four equal
+// fractions of the width — so the bar cannot overflow at 390px the way the
+// old five-item scrolling nav did (the 4th label was clipped to "Clo…" and
+// the 5th was off-screen entirely). Anything that isn't one of these four is
+// not a destination: "Quick estimate" became a way to start a takeoff and
+// now lives inside Takeoff, and Export/Import are once-a-month actions that
+// belong in Settings.
+const TABS: Array<{ id: Screen; label: string; icon: string }> = [
+  // Icons are single <path d="…"> strings, stroked, drawn on a 24×24 grid.
+  { id: "takeoff", label: "Takeoff", icon: "M4 6h16M4 12h16M4 18h10" },
+  {
+    id: "estimate",
+    label: "Estimate",
+    icon: "M6 3h12v18H6zM9 8h6M9 12h6M9 16h3",
+  },
+  { id: "closeout", label: "Close-out", icon: "M4 12l5 5L20 6" },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: "M4 8h16M4 16h16M9 5v6M16 13v6",
+  },
+];
 
 // The rate profile and price book persist under their OWN localStorage keys
 // (see src/data/storage.ts), separately from any one project, because a
@@ -144,6 +166,10 @@ export default function App() {
       const imported = importProject(text);
       setProject(imported);
       setImportError(null);
+      // Importing a job is a request to work on that job. Leaving him on
+      // Settings, looking at a price book, after he has just loaded a house
+      // full of rooms is a dead end.
+      setScreen("takeoff");
     } catch (err) {
       setImportError(
         err instanceof Error
@@ -154,62 +180,80 @@ export default function App() {
   };
 
   return (
-    <main>
-      <h1>Paint Estimator</h1>
-      <nav>
-        <button type="button" onClick={() => setScreen("takeoff")}>
-          Takeoff
-        </button>
-        <button type="button" onClick={() => setScreen("results")}>
-          Results
-        </button>
-        <button type="button" onClick={() => setScreen("settings")}>
-          Settings
-        </button>
-        <button type="button" onClick={() => setScreen("closeout")}>
-          Close-out
-        </button>
-        <button type="button" onClick={() => setScreen("quick")}>
-          Quick estimate
-        </button>
-      </nav>
+    <>
+      <main>
+        {screen === "takeoff" ? (
+          <TakeoffScreen project={project} onChange={setProject} />
+        ) : screen === "estimate" ? (
+          <ResultsScreen project={project} />
+        ) : screen === "closeout" ? (
+          <CloseoutScreen project={project} onChange={setProject} />
+        ) : (
+          <>
+            <SettingsScreen project={project} onChange={setProject} />
 
-      <div className="project-io">
-        <button type="button" onClick={handleExport}>
-          Export
-        </button>
-        <button type="button" onClick={handleImportClick}>
-          Import
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json,.json"
-          aria-label="import project file"
-          style={{ display: "none" }}
-          onChange={handleImportFile}
-        />
-        {importError && (
-          <p role="alert" data-testid="import-error" className="import-error">
-            {importError}
-          </p>
+            <section className="project-io">
+              <h2>This job's file</h2>
+              <p className="note">
+                Export writes the whole estimate to a file you can email
+                yourself or keep as a backup. Import replaces what is on screen.
+              </p>
+              <div className="project-io-actions">
+                <button type="button" onClick={handleExport}>
+                  Export
+                </button>
+                <button type="button" onClick={handleImportClick}>
+                  Import
+                </button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json,.json"
+                aria-label="import project file"
+                style={{ display: "none" }}
+                onChange={handleImportFile}
+              />
+              {importError && (
+                <p
+                  role="alert"
+                  data-testid="import-error"
+                  className="import-error"
+                >
+                  {importError}
+                </p>
+              )}
+            </section>
+          </>
         )}
-      </div>
+      </main>
 
-      {screen === "takeoff" ? (
-        <TakeoffScreen project={project} onChange={setProject} />
-      ) : screen === "results" ? (
-        <ResultsScreen project={project} />
-      ) : screen === "settings" ? (
-        <SettingsScreen project={project} onChange={setProject} />
-      ) : screen === "closeout" ? (
-        <CloseoutScreen project={project} onChange={setProject} />
-      ) : (
-        <QuickEstimateScreen
-          rates={project.rateProfile}
-          priceBook={project.priceBook}
-        />
-      )}
-    </main>
+      <nav className="tabbar" aria-label="Sections">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className="tab"
+            aria-current={screen === tab.id ? "page" : undefined}
+            onClick={() => setScreen(tab.id)}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d={tab.icon} />
+            </svg>
+            <span className="tab-label">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
+    </>
   );
 }

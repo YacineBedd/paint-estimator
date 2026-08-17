@@ -39,7 +39,10 @@ describe("App — persistence (F1)", () => {
     render(<App />);
 
     expect(screen.getByText("Smith house")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Restored room")).toBeInTheDocument();
+    // The takeoff opens on the room LIST, where a room's name is the row's
+    // label rather than an input; the room's own fields are one tap away in
+    // its editor. Same room, same assertion that it was restored.
+    expect(screen.getByText("Restored room")).toBeInTheDocument();
   });
 
   it("falls back to a blank new project when nothing is stored", () => {
@@ -179,15 +182,26 @@ describe("App — autosave flush on unload/unmount (R1)", () => {
   });
 });
 
+// Export and Import are once-a-month actions. They used to cost ~60px of
+// chrome at the top of every screen, on every visit, including the takeoff
+// screen he is standing in a house using. They now live in Settings, so
+// these tests open Settings first. What they assert — that both controls
+// are present, that a bad file surfaces its error, and that a good file
+// replaces the project — is unchanged.
+const goToSettings = () =>
+  userEvent.click(screen.getByRole("button", { name: /settings/i }));
+
 describe("App — export/import (F1)", () => {
-  it("renders visible Export and Import controls", () => {
+  it("renders visible Export and Import controls", async () => {
     render(<App />);
+    await goToSettings();
     expect(screen.getByRole("button", { name: /export/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /import/i })).toBeInTheDocument();
   });
 
   it("surfaces the thrown error message when an invalid file is imported", async () => {
     render(<App />);
+    await goToSettings();
     const input = screen.getByLabelText(/import project file/i);
     const badFile = new File(["not json"], "bad.json", {
       type: "application/json",
@@ -201,6 +215,7 @@ describe("App — export/import (F1)", () => {
 
   it("replaces the project when a valid file is imported", async () => {
     render(<App />);
+    await goToSettings();
     const imported = {
       ...newProject("Imported house", "p2"),
       rooms: [room("ri1", "Imported room")],
@@ -211,7 +226,9 @@ describe("App — export/import (F1)", () => {
     const input = screen.getByLabelText(/import project file/i);
     await userEvent.upload(input, file);
 
+    // A successful import now lands on the takeoff — importing a job is a
+    // request to work on that job, not to keep staring at the price book.
     expect(await screen.findByText("Imported house")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Imported room")).toBeInTheDocument();
+    expect(screen.getByText("Imported room")).toBeInTheDocument();
   });
 });
