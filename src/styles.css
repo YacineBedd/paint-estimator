@@ -2,27 +2,40 @@
   Paint Estimator — stylesheet
   ============================
   One user: a residential painting contractor in Quebec, on his phone,
-  standing in a client's house, tape measure in hand. Sometimes on a
-  laptop at the kitchen table afterwards. Design brief, in order:
+  standing in a client's house, tape measure in one hand. Ten to fourteen
+  rooms is a normal house and he wants to quote before he leaves the
+  driveway. Design brief, in order:
 
     1. Phone-first (390px baseline), no sideways body scroll.
-    2. Every tap target >= 44px.
+    2. Thumb-reachable navigation; every tap target >= 44px.
     3. Money & hours legible and unambiguous (tabular digits, never faint).
     4. Warning levels visually distinct: error = STOP, info = note.
-    5. Sticky totals footer on the takeoff screen.
+    5. The running total always in view, above the tab bar.
     6. Strong contrast — assume sunlight through a window.
 
   Aesthetic: "job-site spec sheet" — clipboard/work-order energy rather
   than generic-app energy. Hard-edged index-card shadows instead of soft
-  blur, uppercase stencil-style field captions, a monospace readout for
-  every number (money and hours are the product), and a hazard-tape
-  treatment reserved for hard errors.
+  blur, uppercase stencil-style field captions, tabular mono for every
+  NUMBER (and only for numbers — prose stays in the text face), and a
+  hazard-tape treatment reserved for hard errors.
 
   Fonts are system stacks on purpose, not from neglect: this has to
   render correctly with zero network access, standing in a house with a
   weak signal. Distinctiveness comes from type-scale, color, borders and
   the tabular/monospace treatment of numerals instead of a downloaded
   font.
+
+  Layout model
+  ------------
+  Two viewport-fixed chrome layers stack at the bottom, in this order:
+
+      [ scrolling <main> ..................... ]
+      [ .totals   — the running total          ]  (takeoff only)
+      [ .tabbar   — 4 tabs, never overflows    ]
+
+  Both add env(safe-area-inset-bottom) so nothing hides under an iPhone's
+  home indicator, and <main> reserves exactly their combined height as
+  bottom padding so the last row of content is always reachable.
 */
 
 /* ---------------------------------------------------------------------
@@ -47,6 +60,11 @@
   --radius-sm: 6px;
 
   --tap: 44px;
+
+  --shell: 760px;
+  --tabbar-h: 58px;
+  --totals-h: 58px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
 
   /* Light theme (default) */
   --bg: #f3f1ea;
@@ -152,7 +170,6 @@ body {
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.45;
-  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -186,82 +203,153 @@ a {
   color: #14171b;
 }
 
+/* Numbers — and ONLY numbers — get the tabular mono treatment. Prose in
+   this app is client-facing; a labour breakdown set entirely in mono reads
+   like terminal output. `.num` is the opt-in for a figure sitting inside a
+   sentence. */
+.num,
+input[type="number"],
+.readout-value,
+.room-card-money,
+.room-card-hours,
+.room-card-size,
+.room-geometry,
+.drift-note,
+.totals,
+.total [data-testid="grand-total"],
+.quick [data-testid="quick-total"],
+.drift [data-testid="finish-coverage"],
+.section-total {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------------------------------------------------------------------
    3. App shell
    ------------------------------------------------------------------ */
 
 main {
-  max-width: 760px;
+  max-width: var(--shell);
   margin: 0 auto;
-  padding: var(--space-4) var(--space-4) var(--space-6);
+  /* Bottom padding clears the fixed tab bar. Screens that also carry the
+     fixed totals bar reserve its height too, via :has() below. */
+  padding: var(--space-4) var(--space-4)
+    calc(var(--tabbar-h) + var(--safe-b) + var(--space-5));
 }
 
-main > h1 {
+main:has(.totals) {
+  padding-bottom: calc(
+    var(--tabbar-h) + var(--totals-h) + var(--safe-b) + var(--space-5)
+  );
+}
+
+/* Compact screen header: one line, ~44px, replacing the old stack of app
+   title + scrolling nav + Export/Import + heading that pushed the first
+   input ~470px down the page on every screen. */
+.screen-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-3);
-  font-size: clamp(1.35rem, 4vw, 1.75rem);
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  padding-bottom: var(--space-3);
-  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
   border-bottom: 3px solid var(--line);
 }
 
-main > h1::before {
-  content: "";
-  display: inline-block;
-  width: 1.1em;
-  height: 1.1em;
-  flex-shrink: 0;
-  border-radius: 4px;
-  border: 2px solid var(--line);
-  background: linear-gradient(135deg, var(--accent), var(--totals-hero));
-}
-
-nav {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: var(--space-2);
-  margin-bottom: var(--space-4);
-  scrollbar-width: thin;
-}
-
-nav button {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  background: var(--paper);
-}
-
-.project-io {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-}
-
-.project-io button {
-  background: var(--paper);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.import-error {
-  flex-basis: 100%;
+.screen-head h2 {
   margin: 0;
-  padding: var(--space-3) var(--space-4);
-  background: var(--error-bg);
-  color: var(--error-ink);
-  border: 2px solid var(--error-border);
-  border-radius: var(--radius-sm);
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.screen-head-meta {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
 }
 
 /* ---------------------------------------------------------------------
-   4. Form primitives (shared everywhere)
+   4. Bottom tab bar — 4 equal columns, so it can never overflow.
+   ------------------------------------------------------------------ */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  /* Four fractions of whatever width there is. At 390px that's 97.5px a
+     tab; the labels are set small enough to fit "Close-out" without
+     truncation, and there is no horizontal scrolling to hide a tab in. */
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--totals-bg);
+  border-top: 2px solid var(--line);
+  padding-bottom: var(--safe-b);
+  box-shadow: 0 -2px 10px rgb(0 0 0 / 30%);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: var(--tabbar-h);
+  padding: var(--space-1) 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgb(242 240 233 / 62%);
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab svg {
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+
+.tab[aria-current="page"] {
+  color: var(--totals-hero);
+}
+
+.tab[aria-current="page"] svg {
+  opacity: 1;
+}
+
+/* Active marker: a painted stripe along the top edge of the tab, in the
+   same hazard yellow the running total uses. */
+.tab[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 46px;
+  height: 3px;
+  background: var(--totals-hero);
+}
+
+.tab {
+  position: relative;
+}
+
+/* ---------------------------------------------------------------------
+   5. Form primitives (shared everywhere)
    ------------------------------------------------------------------ */
 
 label {
@@ -297,8 +385,6 @@ button:focus-visible {
 }
 
 input[type="number"] {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
   font-size: 1.05rem;
 }
 
@@ -378,12 +464,24 @@ button:active {
 }
 
 /* Primary "add" actions */
-.takeoff > button,
+.add-room,
 .custom-surfaces > button,
 .openings-actions button {
   background: var(--accent);
   color: var(--accent-ink);
   border-color: var(--accent);
+}
+
+.add-room {
+  width: 100%;
+  margin-top: var(--space-3);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.add-room::before {
+  content: "+ ";
+  font-weight: 900;
 }
 
 /* Every destructive "remove" button shares this aria-label prefix. */
@@ -403,7 +501,78 @@ button[aria-label^="remove"] {
 }
 
 /* ---------------------------------------------------------------------
-   5. Warnings — error must read as STOP, info as a note.
+   6. Disclosure — a real button + unmounted body, not <details>.
+   ------------------------------------------------------------------ */
+
+.disclosure {
+  margin-top: var(--space-4);
+}
+
+.disclosure-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  background: var(--paper-alt);
+  border-style: dashed;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.disclosure-label {
+  flex: 0 0 auto;
+  font-weight: 800;
+}
+
+.disclosure-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+}
+
+.disclosure-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 9px;
+  height: 9px;
+  border-right: 2.5px solid var(--ink-soft);
+  border-bottom: 2.5px solid var(--ink-soft);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.15s ease;
+}
+
+.disclosure-hint + .disclosure-chevron {
+  margin-left: 0;
+}
+
+.disclosure-toggle[aria-expanded="true"] .disclosure-chevron {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+
+.disclosure-body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.disclosure-toggle[aria-expanded="true"] {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-bottom-width: 0;
+}
+
+/* ---------------------------------------------------------------------
+   7. Warnings — error must read as STOP, info as a note.
    ------------------------------------------------------------------ */
 
 .warnings {
@@ -485,77 +654,251 @@ button[aria-label^="remove"] {
 }
 
 /* ---------------------------------------------------------------------
-   6. Takeoff screen
+   8. Takeoff — the room list
+   One row per room, hairline-separated inside a single card, so ten rooms
+   read as one document rather than ten competing objects. A row is ~62px:
+   at 390×844 that is nine rooms in view without scrolling, against the
+   ~1000px ONE room used to occupy.
    ------------------------------------------------------------------ */
 
-.takeoff h2 {
-  font-size: 1.3rem;
+.room-list-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 var(--space-3) var(--space-1);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
 }
 
-.room-row {
-  position: relative;
+.room-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   background: var(--paper);
   border: 2px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  padding: var(--space-4);
-  margin-bottom: var(--space-5);
+  overflow: hidden;
 }
 
-.room-row > input[aria-label="room name"] {
-  font-size: 1.15rem;
+.room-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 1px var(--space-3);
+  width: 100%;
+  min-height: 62px;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  background: var(--paper);
+  border: 0;
+  border-radius: 0;
+  border-left: 4px solid transparent;
+}
+
+.room-list li + li .room-card {
+  border-top: 1px solid var(--line-soft);
+}
+
+.room-card:hover {
+  background: var(--paper-alt);
+  border-left-color: var(--accent);
+}
+
+.room-card-name {
+  font-size: 1.02rem;
   font-weight: 800;
-  margin-top: 0;
-  margin-bottom: var(--space-4);
-  border-color: var(--line);
+  color: var(--ink);
+  overflow-wrap: anywhere;
 }
 
-.room-row > label {
-  display: inline-block;
-  width: calc(33.333% - var(--space-2));
-  vertical-align: top;
-  margin-right: var(--space-2);
+.room-card-money {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
-.room-row > label:last-of-type {
-  margin-right: 0;
+.room-card-size {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-fieldset.scope {
+.room-card-hours {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* A room the engine has something to say about. The detail is in the
+   warning list above; this is only the "look here" mark. */
+.room-card-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin-left: 0.45em;
+  border-radius: 50%;
+  background: var(--warn-border);
+  color: #14171b;
+  font-size: 0.75rem;
+  font-weight: 900;
+  vertical-align: text-top;
+}
+
+.room-list-empty {
+  padding: var(--space-4);
+  background: var(--paper);
+  border: 2px dashed var(--line-soft);
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------
+   9. Takeoff — the focused room editor
+   ------------------------------------------------------------------ */
+
+.editor-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
-fieldset.scope label:has(> input[type="checkbox"]) {
-  flex: 1 1 90px;
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+  background: var(--paper);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-fieldset.products label {
+.back-chevron {
+  width: 9px;
+  height: 9px;
+  border-left: 2.5px solid currentcolor;
+  border-bottom: 2.5px solid currentcolor;
+  transform: rotate(45deg);
+}
+
+.remove-room {
+  font-size: 0.85rem;
+}
+
+.room-name {
+  margin: 0 0 var(--space-4);
+  font-size: 1.25rem;
+  font-weight: 800;
+  border-width: 0 0 3px;
+  border-radius: 0;
+  padding-left: 0;
+  background: transparent;
+}
+
+/* The three fields he is actually holding a tape measure for. They are the
+   hero of this screen: full-height cells, oversized mono figures, a
+   permanent unit, and nothing else on their row competing for the eye. */
+.gauges {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
 
-fieldset.products label:last-child {
-  margin-bottom: 0;
+.gauge {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card-sm);
+}
+
+.gauge-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-soft);
+}
+
+.gauge input {
+  margin: 0;
+  padding: 0;
+  min-height: 46px;
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  /* Native steppers steal ~20px of a 110px-wide cell and are useless to a
+     thumb; the numeric keypad is the input method here. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.gauge input::-webkit-outer-spin-button,
+.gauge input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.gauge input::placeholder {
+  color: var(--line-soft);
+  font-weight: 700;
+}
+
+.gauge input:focus-visible {
+  outline: 0;
+}
+
+.gauge:focus-within {
+  border-color: var(--accent);
+  box-shadow: 3px 3px 0 var(--accent);
+}
+
+.gauge-unit {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
 }
 
 .room-geometry {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-2);
-  margin: var(--space-4) 0;
-  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
   background: var(--accent-soft-bg);
   color: var(--accent-soft-ink);
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
-}
-
-.openings {
-  margin-top: var(--space-4);
 }
 
 .openings-actions {
@@ -601,14 +944,60 @@ fieldset.products label:last-child {
   align-self: flex-end;
 }
 
-.custom-surfaces {
-  margin-top: var(--space-6);
-  padding-top: var(--space-5);
-  border-top: 3px solid var(--line);
+.room-more .disclosure-body > fieldset:first-child {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+fieldset.scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+}
+
+fieldset.scope label:has(> input[type="checkbox"]) {
+  flex: 1 1 90px;
+}
+
+fieldset.products label {
+  margin-bottom: var(--space-4);
+}
+
+fieldset.products label:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------------
+   10. Takeoff — square-footage starter & other surfaces
+   ------------------------------------------------------------------ */
+
+.starter {
+  margin-top: var(--space-4);
+}
+
+.starter-open {
+  padding: var(--space-4);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.starter-open::before {
+  content: "Start from square footage";
+  display: block;
+  margin-bottom: var(--space-3);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
 }
 
 .custom-surfaces h3 {
-  font-size: 1.1rem;
+  margin-top: 0;
+  font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -630,28 +1019,31 @@ fieldset.products label:last-child {
   margin-bottom: 0;
 }
 
-/* The sticky totals bar — the number he watches change while he types.
-   Sticks to the viewport bottom on mobile, stays dark/high-contrast in
-   both themes so it always reads over whatever is scrolling behind it. */
+/* ---------------------------------------------------------------------
+   11. The running total — fixed above the tab bar, and it stays there
+   while the on-screen keyboard is up, because it is pinned to the visual
+   viewport rather than to the end of a scrolling document.
+   ------------------------------------------------------------------ */
+
 .totals {
-  position: sticky;
-  bottom: 0;
-  z-index: 20;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-h) + var(--safe-b));
+  z-index: 30;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2) var(--space-4);
-  margin: var(--space-5) calc(-1 * var(--space-4)) calc(-1 * var(--space-6));
-  padding: var(--space-4) var(--space-4)
-    calc(var(--space-4) + env(safe-area-inset-bottom));
+  min-height: var(--totals-h);
+  /* Centres the content on the same rail as <main> on wide screens without
+     the bar itself stopping short of the window edges. */
+  padding: var(--space-2) max(var(--space-4), calc((100vw - var(--shell)) / 2));
   background: var(--totals-bg);
   color: var(--totals-ink);
   border-top: 3px solid var(--totals-border);
-  box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.35);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 1rem;
+  box-shadow: 0 -6px 14px rgb(0 0 0 / 35%);
+  font-size: 0.85rem;
   font-weight: 700;
 }
 
@@ -662,12 +1054,8 @@ fieldset.products label:last-child {
 }
 
 /* ---------------------------------------------------------------------
-   7. Results screen
+   12. Estimate screen
    ------------------------------------------------------------------ */
-
-.results h2 {
-  font-size: 1.3rem;
-}
 
 .results .warnings-errors {
   margin-top: 0;
@@ -694,21 +1082,68 @@ fieldset.products label:last-child {
   margin-bottom: var(--space-3);
 }
 
-.labor p {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+/* Caption in the text face, figure in tabular mono, aligned on a single
+   right rail so the column of numbers can be read straight down. */
+.readouts {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
 }
 
-.labor [data-testid="labor-cost"],
-.materials [data-testid="material-cost"] {
+.readout {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0 var(--space-3);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.readout:last-child {
+  border-bottom: 0;
+}
+
+.readout-label {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.readout-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.readout-value-strong {
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.readout-note {
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.labor-days {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.labor-days [data-testid="crew-days"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.section-total {
   font-size: 1.15rem;
   font-weight: 800;
   color: var(--ink);
   margin-bottom: 0;
-}
-
-.labor [data-testid="hours-total"] {
-  font-size: 1.05rem;
 }
 
 .total {
@@ -723,8 +1158,6 @@ fieldset.products label:last-child {
 }
 
 .total [data-testid="grand-total"] {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
   font-size: clamp(2rem, 8vw, 2.75rem);
   font-weight: 900;
   color: var(--totals-hero);
@@ -732,7 +1165,7 @@ fieldset.products label:last-child {
 }
 
 /* ---------------------------------------------------------------------
-   8. Responsive tables (materials / price book / closeout)
+   13. Responsive tables (materials / price book / closeout)
    Below 640px these render as stacked cards instead of a table a thumb
    has to scroll sideways to read. At and above 640px they stay tables,
    wrapped in a horizontally-scrolling container as a safety net so the
@@ -914,17 +1347,16 @@ td select {
 }
 
 .drift-note {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
   color: var(--ink-soft);
 }
 
 /* ---------------------------------------------------------------------
-   9. Settings screen
+   14. Settings screen
    ------------------------------------------------------------------ */
 
-.settings h2 {
+.settings h2,
+.project-io h2 {
   font-size: 1.2rem;
   margin-top: var(--space-6);
 }
@@ -945,8 +1377,39 @@ td select {
   margin: var(--space-3) 0;
 }
 
+/* Export / Import: once-a-month actions, moved off the takeoff screen
+   where they cost ~60px of chrome on every visit. */
+.project-io {
+  padding-top: var(--space-4);
+  border-top: 3px solid var(--line);
+}
+
+.project-io-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.project-io-actions button {
+  flex: 1 1 120px;
+  background: var(--paper);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.import-error {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--error-bg);
+  color: var(--error-ink);
+  border: 2px solid var(--error-border);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
 /* ---------------------------------------------------------------------
-   10. Close-out screen
+   15. Close-out screen
    ------------------------------------------------------------------ */
 
 .closeout h2 {
@@ -976,47 +1439,58 @@ td select {
 }
 
 .drift [data-testid="finish-coverage"] {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
   font-size: 1.1rem;
 }
 
 /* ---------------------------------------------------------------------
-   11. Quick estimate screen
+   16. Square-footage starter panel
    ------------------------------------------------------------------ */
 
-.quick {
-  background: var(--paper);
-  border: 2px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-4);
+.quick-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 var(--space-3);
 }
 
-.quick h2 {
-  font-size: 1.3rem;
+.quick-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+}
+
+.quick-scope label {
+  flex: 1 1 100px;
 }
 
 .quick [data-testid="quick-total"] {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
   font-weight: 900;
   color: var(--accent);
-  margin: var(--space-4) 0 var(--space-2);
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.quick-sub {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink-soft);
 }
 
 /* ---------------------------------------------------------------------
-   12. Wider screens — laptop at the kitchen table
+   17. Wider screens — laptop at the kitchen table
    ------------------------------------------------------------------ */
 
 @media (min-width: 640px) {
   main {
-    padding: var(--space-5) var(--space-5) var(--space-6);
+    padding-left: var(--space-5);
+    padding-right: var(--space-5);
   }
 
-  .room-row > label {
-    width: calc(25% - var(--space-2));
+  .gauges {
+    gap: var(--space-3);
+  }
+
+  .gauge input {
+    font-size: 2.2rem;
   }
 
   fieldset.products {
@@ -1029,17 +1503,29 @@ td select {
     margin-bottom: 0;
   }
 
-  .totals {
-    margin-left: calc(-1 * var(--space-5));
-    margin-right: calc(-1 * var(--space-5));
-    padding-left: var(--space-5);
-    padding-right: var(--space-5);
-    border-radius: var(--radius) var(--radius) 0 0;
+  .quick-fields {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .tab {
+    flex-direction: row;
+    gap: var(--space-2);
+    font-size: 0.75rem;
   }
 }
 
 @media (min-width: 900px) {
   main {
     max-width: 900px;
+  }
+
+  :root {
+    --shell: 900px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
   }
 }
