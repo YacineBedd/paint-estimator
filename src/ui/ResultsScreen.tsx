@@ -4,8 +4,11 @@ import { computeEstimate } from "../engine/estimate";
 import { formatArea, formatHours, formatMoney } from "./format";
 
 export function ResultsScreen({ project }: { project: Project }) {
-  const estimate = useMemo(() => computeEstimate(project), [project]);
-  const { labor, pricing, materials } = estimate;
+  const estimate = useMemo(
+    () => computeEstimate(project, Date.now()),
+    [project],
+  );
+  const { labor, pricing, materials, warnings } = estimate;
   const rate = project.rateProfile.laborRate;
 
   const roundupValue = (labor.billedRoomHours - labor.hoursWorked) * rate;
@@ -14,6 +17,40 @@ export function ResultsScreen({ project }: { project: Project }) {
   return (
     <div className="results">
       <h2>Estimate</h2>
+
+      {/* F6: a hard OPENINGS_EXCEED_WALL validation error must not sit
+          silently behind a printed total — this was previously only shown
+          on TakeoffScreen. Errors get their own visually distinct list so
+          they can't be mistaken for informational notices. */}
+      {warnings.length > 0 && (
+        <>
+          {warnings.some((w) => w.level === "error") && (
+            <ul
+              className="warnings warnings-errors"
+              data-testid="results-errors"
+            >
+              {warnings
+                .filter((w) => w.level === "error")
+                .map((w, i) => (
+                  <li key={`${w.code}-${i}`} className="warning-error">
+                    {w.message}
+                  </li>
+                ))}
+            </ul>
+          )}
+          {warnings.some((w) => w.level !== "error") && (
+            <ul className="warnings">
+              {warnings
+                .filter((w) => w.level !== "error")
+                .map((w, i) => (
+                  <li key={`${w.code}-${i}`} className={`warning-${w.level}`}>
+                    {w.message}
+                  </li>
+                ))}
+            </ul>
+          )}
+        </>
+      )}
 
       <section className="labor">
         <h3>Labor</h3>

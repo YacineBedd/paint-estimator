@@ -36,4 +36,47 @@ describe("ResultsScreen", () => {
     render(<ResultsScreen project={goldenJob} />);
     expect(screen.getByTestId("labor-cost")).toHaveTextContent("3,525");
   });
+
+  // F6: a hard OPENINGS_EXCEED_WALL validation error must be visible on the
+  // results screen, not just on the takeoff screen — a painter looking only
+  // at the printed total should not miss it.
+  it("surfaces a hard error (OPENINGS_EXCEED_WALL) that TakeoffScreen already catches", () => {
+    const overfilled = {
+      ...goldenJob,
+      rooms: [
+        {
+          ...goldenJob.rooms[1]!,
+          id: "tiny",
+          walls: [2, 2],
+          ceilingHeight: 8,
+          scope: {
+            walls: true,
+            ceiling: true,
+            trim: true,
+            primer: "full" as const,
+          },
+          openings: [
+            {
+              id: "o1",
+              kind: "window" as const,
+              quantity: 20,
+              width: 4,
+              height: 3,
+              paintSlab: false,
+              casedSides: 1 as const,
+            },
+          ],
+        },
+      ],
+    };
+    render(<ResultsScreen project={overfilled} />);
+    const errors = screen.getByTestId("results-errors");
+    expect(errors).toBeInTheDocument();
+    expect(errors.textContent).toMatch(/doors and windows/i);
+  });
+
+  it("renders no error list on a clean job", () => {
+    render(<ResultsScreen project={goldenJob} />);
+    expect(screen.queryByTestId("results-errors")).not.toBeInTheDocument();
+  });
 });

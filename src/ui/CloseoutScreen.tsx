@@ -68,7 +68,10 @@ function GallonsRow({
 }
 
 export function CloseoutScreen({ project, onChange }: Props) {
-  const estimate = useMemo(() => computeEstimate(project), [project]);
+  const estimate = useMemo(
+    () => computeEstimate(project, Date.now()),
+    [project],
+  );
   const report = useMemo(
     () => computeCalibration(project, estimate),
     [project, estimate],
