@@ -1,16 +1,57 @@
 import { useEffect, useState } from "react";
-import type { Room, RoomGeometry } from "../engine/types";
+import type { PaintProduct, Room, RoomGeometry } from "../engine/types";
 import { OpeningsEditor } from "./OpeningsEditor";
 import { formatArea } from "./format";
 
 interface Props {
   room: Room;
   geometry?: RoomGeometry;
+  priceBook: PaintProduct[];
   onChange: (room: Room) => void;
   onRemove: () => void;
 }
 
-export function RoomRow({ room, geometry, onChange, onRemove }: Props) {
+interface ProductSelectProps {
+  label: string;
+  productId: string;
+  priceBook: PaintProduct[];
+  onSelect: (productId: string) => void;
+}
+
+// Primer is applied to a room via `room.scope.primer` (none/spot/full), not
+// by picking a per-room primer product, so primer-use products are excluded
+// from these lists — every other use (wall/ceiling/trim/specialty) is a
+// legitimate finish for any surface. Specialty products like Aura Bath & Spa
+// are the whole point (F2): a bathroom needs to reach them for walls AND
+// ceiling, not just the "wall"/"ceiling"-use products.
+function ProductSelect({
+  label,
+  productId,
+  priceBook,
+  onSelect,
+}: ProductSelectProps) {
+  const options = priceBook.filter((p) => p.use !== "primer");
+  return (
+    <label>
+      {label}
+      <select value={productId} onChange={(e) => onSelect(e.target.value)}>
+        {options.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function RoomRow({
+  room,
+  geometry,
+  priceBook,
+  onChange,
+  onRemove,
+}: Props) {
   // Wall/height fields keep a small mirror of local state instead of being
   // driven straight off `room` on every keystroke. A purely prop-controlled
   // <input value={room.walls[0]}> has its DOM value forced back to the last
@@ -47,6 +88,7 @@ export function RoomRow({ room, geometry, onChange, onRemove }: Props) {
         <input
           type="number"
           step="0.1"
+          min={0}
           value={wall0}
           onChange={(e) => {
             const value = Number(e.target.value);
@@ -60,6 +102,7 @@ export function RoomRow({ room, geometry, onChange, onRemove }: Props) {
         <input
           type="number"
           step="0.1"
+          min={0}
           value={wall1}
           onChange={(e) => {
             const value = Number(e.target.value);
@@ -73,6 +116,7 @@ export function RoomRow({ room, geometry, onChange, onRemove }: Props) {
         <input
           type="number"
           step="0.1"
+          min={0}
           value={height}
           onChange={(e) => {
             const value = Number(e.target.value);
@@ -99,6 +143,30 @@ export function RoomRow({ room, geometry, onChange, onRemove }: Props) {
             {key}
           </label>
         ))}
+      </fieldset>
+
+      <fieldset className="products">
+        <legend>Products</legend>
+        <ProductSelect
+          label="Wall product"
+          productId={room.wallProductId}
+          priceBook={priceBook}
+          onSelect={(wallProductId) => onChange({ ...room, wallProductId })}
+        />
+        <ProductSelect
+          label="Ceiling product"
+          productId={room.ceilingProductId}
+          priceBook={priceBook}
+          onSelect={(ceilingProductId) =>
+            onChange({ ...room, ceilingProductId })
+          }
+        />
+        <ProductSelect
+          label="Trim product"
+          productId={room.trimProductId}
+          priceBook={priceBook}
+          onSelect={(trimProductId) => onChange({ ...room, trimProductId })}
+        />
       </fieldset>
 
       {geometry && (

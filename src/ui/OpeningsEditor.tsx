@@ -56,6 +56,16 @@ function OpeningRow({ opening: o, onUpdate, onRemove }: RowProps) {
   return (
     <div className="opening-row">
       <span>{o.kind}</span>
+      {o.kind === "door" && (
+        <label>
+          Paint door faces
+          <input
+            type="checkbox"
+            checked={o.paintSlab}
+            onChange={(e) => onUpdate({ paintSlab: e.target.checked })}
+          />
+        </label>
+      )}
       <label>
         Qty
         <input
@@ -74,6 +84,7 @@ function OpeningRow({ opening: o, onUpdate, onRemove }: RowProps) {
         <input
           type="number"
           step="0.1"
+          min={0}
           value={width}
           onChange={(e) => {
             const value = Number(e.target.value);
@@ -87,6 +98,7 @@ function OpeningRow({ opening: o, onUpdate, onRemove }: RowProps) {
         <input
           type="number"
           step="0.1"
+          min={0}
           value={height}
           onChange={(e) => {
             const value = Number(e.target.value);
