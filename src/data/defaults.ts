@@ -16,18 +16,38 @@ export const DEFAULT_RATE_PROFILE: RateProfile = {
 };
 
 /**
- * Mirrors `src/engine/__fixtures__/goldenJob.ts` by design, and the duplication
- * is intentional — see the note there. This list is the painter's EDITABLE
- * starting point; the fixture is a frozen historical record. They begin
- * identical and are expected to diverge as he updates prices.
+ * Mirrors `src/engine/__fixtures__/goldenJob.ts` in shape (same product
+ * `id`s, `name`s, `use`s, `packSizeGal`, `coverageOverride`) but NOT in
+ * price — see below.
+ *
+ * PRICES ARE INTENTIONALLY ZERO. This file is a plain TypeScript module
+ * that Vite compiles straight into the JavaScript bundle shipped to the
+ * browser, so any literal written here is readable by anyone who opens the
+ * deployed site's dev tools. His real supplier pricing is commercially
+ * sensitive (negotiated well under Benjamin Moore list) and must never be
+ * checked in or shipped.
+ *
+ * Real prices are entered by the painter himself in Settings after the app
+ * loads, and persist only in his own browser's `localStorage` (see
+ * `src/data/storage.ts`) — never in this file, never in the built bundle.
+ *
+ * Do NOT repopulate `listPrice`/`actualPrice` below with a real person's
+ * supplier pricing, not even temporarily for testing. Use
+ * `src/engine/__fixtures__/goldenJob.ts` for that — it's a frozen test
+ * fixture that is never imported by the app and never reaches the bundle.
+ *
+ * Because a $0 `actualPrice` would otherwise let the app quote $0 for
+ * materials without anyone noticing, `src/engine/warnings.ts` raises a
+ * hard `UNPRICED_PRODUCT` error for any product referenced by the estimate
+ * whose price is still 0.
  */
 export const DEFAULT_PRICE_BOOK: PaintProduct[] = [
   {
     id: "K380",
     name: "Fresh Start primer",
     use: "primer",
-    listPrice: 35,
-    actualPrice: 42,
+    listPrice: 0,
+    actualPrice: 0,
     packSizeGal: 5,
     priceUpdatedAt: "2026-08-16",
   },
@@ -35,8 +55,8 @@ export const DEFAULT_PRICE_BOOK: PaintProduct[] = [
     id: "549",
     name: "Regal Select",
     use: "wall",
-    listPrice: 94.99,
-    actualPrice: 71.25,
+    listPrice: 0,
+    actualPrice: 0,
     packSizeGal: 1,
     priceUpdatedAt: "2026-08-16",
   },
@@ -44,8 +64,8 @@ export const DEFAULT_PRICE_BOOK: PaintProduct[] = [
     id: "550",
     name: "Regal Pearl (trim)",
     use: "trim",
-    listPrice: 94.99,
-    actualPrice: 80.74,
+    listPrice: 0,
+    actualPrice: 0,
     packSizeGal: 1,
     priceUpdatedAt: "2026-08-16",
   },
@@ -53,8 +73,8 @@ export const DEFAULT_PRICE_BOOK: PaintProduct[] = [
     id: "K532",
     name: "Aura Bath & Spa",
     use: "specialty",
-    listPrice: 112.99,
-    actualPrice: 84.74,
+    listPrice: 0,
+    actualPrice: 0,
     packSizeGal: 1,
     coverageOverride: 550,
     priceUpdatedAt: "2026-08-16",
@@ -63,8 +83,8 @@ export const DEFAULT_PRICE_BOOK: PaintProduct[] = [
     id: "K508",
     name: "Waterborne Ceiling",
     use: "ceiling",
-    listPrice: 83.99,
-    actualPrice: 62.5,
+    listPrice: 0,
+    actualPrice: 0,
     packSizeGal: 1,
     priceUpdatedAt: "2026-08-16",
   },

@@ -1,3 +1,4 @@
+import { computeMaterials } from "./materials";
 import type { Project, RoomGeometry, Warning } from "./types";
 
 const STALE_DAYS = 182;
@@ -49,6 +50,33 @@ export function collectWarnings(
         level: "info",
         code: "STALE_PRICE",
         message: `${product.name} price last updated ${Math.round(days)} days ago.`,
+      });
+    }
+  }
+
+  // The shipped price book ships with every price zeroed out (see the
+  // comment on DEFAULT_PRICE_BOOK in src/data/defaults.ts) so no real
+  // pricing goes into the bundle. A $0 actualPrice would otherwise let the
+  // app silently quote $0 for that product's materials. Only products the
+  // estimate actually consumes (computeMaterials' requirements — driven by
+  // rooms' wall/ceiling/trim product assignments, custom surfaces, and the
+  // derived primer requirement) are checked, so an unpriced product sitting
+  // unused in the price book doesn't nag him.
+  const priceById = new Map(project.priceBook.map((p) => [p.id, p]));
+  const materials = computeMaterials(
+    project.rooms,
+    geometry,
+    project.customSurfaces,
+    project.rateProfile,
+    project.priceBook,
+  );
+  for (const requirement of materials.requirements) {
+    const product = priceById.get(requirement.productId);
+    if (product && product.actualPrice <= 0) {
+      warnings.push({
+        level: "error",
+        code: "UNPRICED_PRODUCT",
+        message: `${product.name} has no price set. Set its price in Settings before quoting.`,
       });
     }
   }
