@@ -1733,6 +1733,33 @@ td select {
   .opening {
     background: #171614;
   }
+
+  /* In light mode the face fills (--paper for ceiling, --paper-alt for
+     wall, --bg for floor) put the ceiling lightest and the floor darkest.
+     In dark mode --paper-alt (#242830) is actually LIGHTER than --paper
+     (#1d2127), so reusing them unswapped put the wall above the ceiling
+     and inverted that ordering. Swapping which literal each face uses
+     here restores the same lightest-to-darkest ordering as light mode,
+     without touching --paper/--paper-alt themselves (they're both used
+     all over the rest of the app for unrelated surfaces). */
+  .face-wall {
+    background: #1d2127;
+  }
+  .face-ceiling {
+    background: #242830;
+  }
+
+  /* rgba(0,0,0,0.18) stripes over the dark wall token (#242830, blending
+     to ~#1d2127 -- coincidentally the exact colour of an in-scope
+     ceiling) are invisible. The spec calls this treatment "unmissable",
+     so dark mode needs light stripes instead of dark ones. */
+  .face.hatched {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.22) 0 6px,
+      transparent 6px 12px
+    );
+  }
 }
 
 .room3d-viewport {
