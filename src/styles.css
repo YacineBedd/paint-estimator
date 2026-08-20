@@ -1810,3 +1810,17 @@ td select {
   grid-column: 2;
   font-variant-numeric: tabular-nums;
 }
+
+/* List/Plan toggle above the room-choosing step. */
+.view-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+}
+.view-toggle button {
+  min-height: 44px;
+  flex: 1;
+}
+.view-toggle button[aria-pressed="true"] {
+  font-weight: 700;
+}

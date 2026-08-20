@@ -466,4 +466,35 @@ describe("TakeoffScreen", () => {
       expect(screen.getByLabelText(/square feet/i)).toBeInTheDocument();
     });
   });
+
+  describe("List / Plan toggle", () => {
+    it("shows the list by default", () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      expect(
+        screen.getByRole("button", { name: /^list$/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId("floor-heading-1")).not.toBeInTheDocument();
+    });
+
+    it("switches to the plan and groups by floor", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      await userEvent.click(screen.getByRole("button", { name: /^plan$/i }));
+      expect(screen.getByTestId("floor-heading-1")).toBeInTheDocument();
+    });
+
+    it("switches back to the list", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      await userEvent.click(screen.getByRole("button", { name: /^plan$/i }));
+      await userEvent.click(screen.getByRole("button", { name: /^list$/i }));
+      expect(screen.queryByTestId("floor-heading-1")).not.toBeInTheDocument();
+    });
+
+    it("opening a room from the plan opens that room", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      await userEvent.click(screen.getByRole("button", { name: /^plan$/i }));
+      const first = goldenJob.rooms[0]!;
+      await userEvent.click(screen.getByTestId(`plan-room-${first.id}`));
+      expect(screen.getByDisplayValue(first.name)).toBeInTheDocument();
+    });
+  });
 });

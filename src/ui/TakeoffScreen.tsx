@@ -4,6 +4,7 @@ import { computeEstimate } from "../engine/estimate";
 import { DEFAULT_RATE_PROFILE } from "../data/defaults";
 import { RoomEditor } from "./RoomEditor";
 import { RoomList } from "./RoomList";
+import { HousePlanScreen } from "./HousePlanScreen";
 import { CustomSurfacesEditor } from "./CustomSurfacesEditor";
 import { QuickEstimateScreen } from "./QuickEstimateScreen";
 import { Disclosure } from "./Disclosure";
@@ -77,6 +78,7 @@ function SquareFootageStarter({ hasRooms, rates, priceBook }: StarterProps) {
 
 export function TakeoffScreen({ project, onChange }: Props) {
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "plan">("list");
 
   const estimate = useMemo(
     () => computeEstimate(project, Date.now()),
@@ -151,13 +153,39 @@ export function TakeoffScreen({ project, onChange }: Props) {
 
           <WarningList warnings={estimate.warnings} />
 
-          <RoomList
-            rooms={project.rooms}
-            labor={estimate.labor}
-            laborRate={project.rateProfile.laborRate}
-            warnings={estimate.warnings}
-            onOpen={setEditingRoomId}
-          />
+          <div className="view-toggle" role="group" aria-label="View">
+            <button
+              type="button"
+              aria-pressed={viewMode === "list"}
+              onClick={() => setViewMode("list")}
+            >
+              List
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewMode === "plan"}
+              onClick={() => setViewMode("plan")}
+            >
+              Plan
+            </button>
+          </div>
+
+          {viewMode === "list" ? (
+            <RoomList
+              rooms={project.rooms}
+              labor={estimate.labor}
+              laborRate={project.rateProfile.laborRate}
+              warnings={estimate.warnings}
+              onOpen={setEditingRoomId}
+            />
+          ) : (
+            <HousePlanScreen
+              rooms={project.rooms}
+              labor={estimate.labor}
+              laborRate={project.rateProfile.laborRate}
+              onOpen={setEditingRoomId}
+            />
+          )}
 
           <button type="button" className="add-room" onClick={addRoom}>
             Add room
