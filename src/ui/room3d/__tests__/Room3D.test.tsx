@@ -148,6 +148,61 @@ describe("Room3D", () => {
     expect(screen.getByTestId("face-wall-0")).toHaveTextContent("68");
   });
 
+  // F6: rounding gross, deduction and net independently with .toFixed(0)
+  // can render an annotation whose own arithmetic doesn't add up -- an
+  // 11.8 ft wall at 8 ft with one 2.5x5 opening used to show "94 - 13 =
+  // 82" (true: 94.4 - 12.5 = 81.9; 94 - 13 = 81). The annotation's whole
+  // purpose is letting him check our arithmetic against his own head, so
+  // one decimal has to make it actually check out.
+  it("annotates with one decimal so the displayed arithmetic adds up (F6)", () => {
+    const room = makeRoom([win("a", { wallIndex: 0, width: 2.5, height: 5 })], {
+      walls: [11.8, 12],
+    });
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("face-wall-0")).toHaveTextContent(
+      "94.4 − 12.5 = 81.9",
+    );
+  });
+
+  // F7: the engine clamps net wall area at zero -- an opening can never
+  // remove more wall than exists. A wall carrying enough opening area
+  // (e.g. a wide double window) used to render a negative net, like
+  // "80 − 105 = −25 sq ft", which the estimate never actually charges.
+  it("clamps the displayed net area at zero rather than going negative (F7)", () => {
+    const room = makeRoom([
+      win("a", { wallIndex: 0, width: 10, height: 10, quantity: 1 }),
+    ]);
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+      />,
+    );
+    // wall 0 is 10x8=80 sq ft gross; the 10x10 opening deducts 100 sq ft,
+    // more than the wall itself -- net must read 0.0, never negative.
+    expect(screen.getByTestId("face-wall-0")).toHaveTextContent(
+      "80.0 − 100.0 = 0.0",
+    );
+    expect(screen.getByTestId("face-wall-0")).not.toHaveTextContent("−25");
+    // The only "−" in the annotation is the gross/deduction separator,
+    // immediately followed by the (positive) deduction figure -- never a
+    // negative net.
+    expect(screen.getByTestId("face-wall-0").textContent).toMatch(
+      /= 0\.0 sq ft/,
+    );
+  });
+
   it("reports the wall index and offset when a wall is clicked", async () => {
     const onAddOpening = vi.fn();
     const room = makeRoom();

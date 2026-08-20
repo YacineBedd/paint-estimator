@@ -56,16 +56,24 @@ export function Room3D({
   const annotate = (face: Face): string => {
     if (face.kind !== "wall") {
       const area = face.widthFt * face.heightFt;
-      return `${face.widthFt} × ${face.heightFt} = ${area.toFixed(0)} sq ft`;
+      return `${face.widthFt} × ${face.heightFt} = ${area.toFixed(1)} sq ft`;
     }
     const gross = face.widthFt * face.heightFt;
     const deduction = openingsOnWall(face.wallIndex!).reduce(
       (sum, o) => sum + o.width * o.height * o.quantity,
       0,
     );
-    return deduction > 0
-      ? `${gross.toFixed(0)} − ${deduction.toFixed(0)} = ${(gross - deduction).toFixed(0)} sq ft`
-      : `${gross.toFixed(0)} sq ft`;
+    if (deduction <= 0) return `${gross.toFixed(1)} sq ft`;
+    // Rounding gross, deduction and net independently (each to a whole
+    // number) can produce an annotation whose own arithmetic doesn't add
+    // up -- "94 - 13 = 82" when the true numbers are 94.4 - 12.5 = 81.9.
+    // This annotation exists so he can check our arithmetic against his own
+    // head; one decimal keeps that promise. The engine clamps net area at
+    // zero (an opening can never remove more wall than exists), so the
+    // displayed net does too, rather than showing a negative that the
+    // estimate never charges.
+    const net = Math.max(0, gross - deduction);
+    return `${gross.toFixed(1)} − ${deduction.toFixed(1)} = ${net.toFixed(1)} sq ft`;
   };
 
   const inScope = (face: Face): boolean =>
