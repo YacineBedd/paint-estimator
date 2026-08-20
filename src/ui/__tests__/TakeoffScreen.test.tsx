@@ -496,5 +496,18 @@ describe("TakeoffScreen", () => {
       await userEvent.click(screen.getByTestId(`plan-room-${first.id}`));
       expect(screen.getByDisplayValue(first.name)).toBeInTheDocument();
     });
+
+    // The toggle belongs to the room-CHOOSING step, not the room-editing
+    // step: once a room is open there is no "view" to switch between.
+    it("hides the toggle while a room is open", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      await openRoom("r1");
+      expect(
+        screen.queryByRole("button", { name: /^list$/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /^plan$/i }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

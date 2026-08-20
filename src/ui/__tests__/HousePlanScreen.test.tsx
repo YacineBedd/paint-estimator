@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HousePlanScreen } from "../HousePlanScreen";
+import { RoomList } from "../RoomList";
+import { formatMoney } from "../format";
 import { computeEstimate } from "../../engine/estimate";
 import { goldenJob } from "../../engine/__fixtures__/goldenJob";
 import type { Project } from "../../engine/types";
@@ -78,6 +80,75 @@ describe("HousePlanScreen", () => {
       rooms: [{ ...twoFloors.rooms[0]!, id: "x", name: "Orphan", floor: 0 }],
     };
     renderPlan(noFloor);
-    expect(screen.getByText("Orphan")).toBeInTheDocument();
+    // Asserting the text exists anywhere on the page would still pass if the
+    // floor-0 guard were removed, because the room would then render under
+    // its own "Floor 0" section instead of vanishing. The guard's actual
+    // promise is that it lands under FLOOR 1 specifically, and that no
+    // separate floor-0 section exists at all.
+    const floor1 = screen.getByTestId("floor-heading-1");
+    expect(floor1.closest("section")).toHaveTextContent("Orphan");
+    expect(screen.queryByTestId("floor-heading-0")).not.toBeInTheDocument();
+  });
+
+  // labor.rooms mixes real-room rows with custom-surface rows keyed by the
+  // surface's own id (see src/engine/labor.ts), and goldenJob — which
+  // twoFloors spreads — carries a real custom surface (cs1, 4 billed hours).
+  // Asserting only that a floor-total node EXISTS would still pass if a
+  // regression summed over the whole labor.rooms array instead of the
+  // rooms actually on that floor; an exact expected value catches it.
+  it("computes a floor's labour subtotal from that floor's rooms only, excluding custom surfaces", () => {
+    renderPlan();
+    // Floor 2 = bedroom 1 (id "b", billed 6h per GOLDEN_EXPECTED.perRoom.r2)
+    // + bedroom 2 (id "c", billed 7h per GOLDEN_EXPECTED.perRoom.r3) = 13h,
+    // at the golden job's $75/hr labour rate = $975.00. cs1's own 4 billed
+    // hours must NOT be folded into this — it belongs to no floor.
+    expect(screen.getByTestId("floor-total-2")).toHaveTextContent(
+      formatMoney(13 * 75),
+    );
+  });
+
+  // RoomList's convention for "nothing measured yet" is formatRoomSize
+  // returning null, rendered as the string "not measured yet" — not a
+  // literal "0 × 0". The plan has to say the same thing about the same
+  // room, or the two screens disagree about a room neither of them has
+  // actually seen.
+  it("reads an unmeasured room's dimensions the same way RoomList does", () => {
+    const unmeasured: Project = {
+      ...twoFloors,
+      rooms: [
+        { ...twoFloors.rooms[0]!, id: "u", name: "Fresh room", walls: [0, 0] },
+      ],
+    };
+    const estimate = computeEstimate(
+      unmeasured,
+      Date.parse("2026-08-19T00:00:00Z"),
+    );
+    const onOpen = vi.fn();
+
+    const plan = render(
+      <HousePlanScreen
+        rooms={unmeasured.rooms}
+        labor={estimate.labor}
+        laborRate={unmeasured.rateProfile.laborRate}
+        onOpen={onOpen}
+      />,
+    );
+    expect(screen.getByTestId("plan-room-u")).toHaveTextContent(
+      "not measured yet",
+    );
+    plan.unmount();
+
+    render(
+      <RoomList
+        rooms={unmeasured.rooms}
+        labor={estimate.labor}
+        laborRate={unmeasured.rateProfile.laborRate}
+        warnings={estimate.warnings}
+        onOpen={onOpen}
+      />,
+    );
+    expect(screen.getByTestId("room-card-u")).toHaveTextContent(
+      "not measured yet",
+    );
   });
 });

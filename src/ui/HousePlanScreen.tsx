@@ -1,5 +1,5 @@
 import type { LaborResult, Room } from "../engine/types";
-import { formatHours, formatMoney } from "./format";
+import { formatHours, formatMoney, formatRoomSize } from "./format";
 
 interface Props {
   rooms: Room[];
@@ -52,8 +52,8 @@ export function HousePlanScreen({ rooms, labor, laborRate, onOpen }: Props) {
                   >
                     <span className="plan-room-name">{room.name}</span>
                     <span className="plan-room-dims">
-                      {room.walls[0] ?? 0} × {room.walls[1] ?? 0} ·{" "}
-                      {room.ceilingHeight} ft
+                      {formatRoomSize(room.walls, room.ceilingHeight) ??
+                        "not measured yet"}
                     </span>
                     <span className="plan-room-hours">
                       {formatHours(hoursFor(room.id))} h

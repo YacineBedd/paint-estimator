@@ -1777,8 +1777,12 @@ td select {
   }
 }
 
-/* House plan — rooms grouped by floor, mirroring the room-list row
-   conventions (.room-card) above so the two screens read as one app. */
+/* ---------------------------------------------------------------------
+   19. House plan & List/Plan toggle
+   Rooms grouped by floor, mirroring the room-list row conventions
+   (.room-card, section 8) above so the two screens read as one app.
+   ------------------------------------------------------------------ */
+
 .plan-floor {
   margin-bottom: 20px;
 }
