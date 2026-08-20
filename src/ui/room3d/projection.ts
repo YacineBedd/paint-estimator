@@ -61,13 +61,32 @@ export function projectRoom(
     transform,
   });
 
+  // Every face's transform must leave its visible side facing the room centre —
+  // backface-visibility:hidden (Task 3) relies on that to cull whichever wall sits
+  // between the camera and the room, so you see into an open box.
+  //
+  // A face's default (untransformed) normal is +Z. To point inward each wall gets
+  // rotated 180deg from the "naive" outward-facing transform:
+  //   wall 0 (front, +depthPx/2) → normal -Z  → rotateY(180deg)
+  //   wall 1 (right, +widthPx/2) → normal -X  → rotateY(-90deg)
+  //   wall 2 (back,  -depthPx/2) → normal +Z  → identity (already faces +Z)
+  //   wall 3 (left,  -widthPx/2) → normal +X  → rotateY(90deg)
+  //
+  // All four only ever compose rotateY (rotation about the vertical axis), so the
+  // local up/down (Y) axis is never touched — a door's floor-anchored edge stays on
+  // the floor and a window's sill stays below the top of the wall on every wall.
+  // The trade-off is that each wall's local "left" (offset 0) lands on the far side
+  // of the wall from where it would if you were standing inside facing it — that is
+  // consistent across all four walls (an inherent, expected property of viewing the
+  // inside of a box from outside it, not an accidental mirror), so a click handler
+  // that places openings can correct for it with one uniform rule.
   return {
     scale,
     faces: [
-      wall(0, w, `translateZ(${dPx / 2}px)`),
-      wall(1, d, `translateX(${wPx / 2}px) rotateY(90deg)`),
-      wall(2, w, `translateZ(${-dPx / 2}px) rotateY(180deg)`),
-      wall(3, d, `translateX(${-wPx / 2}px) rotateY(-90deg)`),
+      wall(0, w, `translateZ(${dPx / 2}px) rotateY(180deg)`),
+      wall(1, d, `translateX(${wPx / 2}px) rotateY(-90deg)`),
+      wall(2, w, `translateZ(${-dPx / 2}px)`),
+      wall(3, d, `translateX(${-wPx / 2}px) rotateY(90deg)`),
       {
         id: "floor",
         kind: "floor",
@@ -109,9 +128,12 @@ export function openingBox(
   wallWidthFt: number,
   scale: number,
 ): { leftPx: number; bottomPx: number; widthPx: number; heightPx: number } {
-  const widthPx = clamp0(o.width) * scale;
-  const heightPx = clamp0(o.height) * scale;
   const wallPx = clamp0(wallWidthFt) * scale;
+  // An opening can never be wider (or, absent a passed-in wall height, taller) than
+  // the wall it sits on — clamp both to the only extent this function knows about
+  // so a misconfigured opening can't overflow past the wall's edge.
+  const widthPx = Math.min(clamp0(o.width) * scale, wallPx);
+  const heightPx = Math.min(clamp0(o.height) * scale, wallPx);
 
   const rawOffset = o.offset ?? 0.5;
   const offset = Math.min(

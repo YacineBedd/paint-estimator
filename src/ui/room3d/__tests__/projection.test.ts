@@ -64,16 +64,47 @@ describe("projectRoom", () => {
     expect(p.scale).toBeLessThanOrEqual(PX_PER_FT_MAX);
   });
 
-  it("places each wall on its own axis", () => {
-    const p = projectRoom(10, 12, 8, 400);
-    const t = (i: number) => p.faces.find((f) => f.wallIndex === i)!.transform;
-    expect(t(0)).toContain("translateZ(");
-    expect(t(1)).toContain("rotateY(90deg)");
-    expect(t(2)).toContain("rotateY(180deg)");
-    expect(t(3)).toContain("rotateY(-90deg)");
-    expect(p.faces.find((f) => f.kind === "floor")!.transform).toContain(
-      "rotateX(90deg)",
+  it("gives every wall, the floor, and the ceiling the exact inward-facing transform", () => {
+    // Full-string assertions (not toContain) so a wrong sign, wrong axis, or a wall
+    // swapped with its opposite fails the test. Pixel values are computed with the
+    // same arithmetic as the implementation so the float representation matches
+    // exactly rather than relying on hand-rounded literals.
+    const widthFt = 10;
+    const depthFt = 12;
+    const heightFt = 8;
+    const maxPx = 400;
+    const p = projectRoom(widthFt, depthFt, heightFt, maxPx);
+
+    const largest = Math.max(widthFt, depthFt, heightFt);
+    const scale = Math.min(maxPx / largest, PX_PER_FT_MAX);
+    const wPx = widthFt * scale;
+    const dPx = depthFt * scale;
+    const hPx = heightFt * scale;
+
+    const byIndex = (i: number) => p.faces.find((f) => f.wallIndex === i)!;
+
+    // Wall 0 (front, +depthPx/2) needs normal -Z (inward): rotateY(180deg) flips
+    // the Z axis but leaves the local up/down (Y) axis untouched.
+    expect(byIndex(0).transform).toBe(
+      `translateZ(${dPx / 2}px) rotateY(180deg)`,
     );
+    // Wall 1 (right, +widthPx/2) needs normal -X (inward).
+    expect(byIndex(1).transform).toBe(
+      `translateX(${wPx / 2}px) rotateY(-90deg)`,
+    );
+    // Wall 2 (back, -depthPx/2) needs normal +Z (inward): the default,
+    // untransformed face already faces +Z, so no rotation is applied at all.
+    expect(byIndex(2).transform).toBe(`translateZ(${-dPx / 2}px)`);
+    // Wall 3 (left, -widthPx/2) needs normal +X (inward).
+    expect(byIndex(3).transform).toBe(
+      `translateX(${-wPx / 2}px) rotateY(90deg)`,
+    );
+
+    const floor = p.faces.find((f) => f.kind === "floor")!;
+    const ceiling = p.faces.find((f) => f.kind === "ceiling")!;
+    // Floor needs normal -Y (up, inward); ceiling needs normal +Y (down, inward).
+    expect(floor.transform).toBe(`translateY(${hPx / 2}px) rotateX(90deg)`);
+    expect(ceiling.transform).toBe(`translateY(${-hPx / 2}px) rotateX(-90deg)`);
   });
 
   it("returns a degenerate but safe projection for a zero-size room", () => {
@@ -145,5 +176,13 @@ describe("openingBox", () => {
     expect(box.widthPx).toBeGreaterThanOrEqual(0);
     expect(box.heightPx).toBeGreaterThanOrEqual(0);
     expect(box.leftPx).toBeGreaterThanOrEqual(0);
+  });
+
+  it("clamps widthPx and heightPx to the wall's own extent", () => {
+    // wall is 2ft wide at scale 1 -> 2px; a 10ft opening must not overflow it
+    const box = openingBox(win({ width: 10, height: 10 }), 2, 1);
+    expect(box.widthPx).toBe(2);
+    expect(box.heightPx).toBe(2);
+    expect(box.leftPx).toBe(0);
   });
 });
