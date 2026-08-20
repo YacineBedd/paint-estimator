@@ -10,6 +10,15 @@ export interface Opening {
   height: number; // ft
   paintSlab: boolean; // paint both faces of a door
   casedSides: 0 | 1 | 2;
+
+  // ---- Presentation only. The engine MUST NOT read these. ----
+  // A 4'x3' "window" subtracts 12 sq ft wherever it sits, so placement can
+  // never affect a calculation. src/engine/__tests__/placement-decoupling.test.ts
+  // asserts this and must never be weakened.
+  /** Which wall this was placed on, for rendering. */
+  wallIndex?: 0 | 1 | 2 | 3;
+  /** Position along that wall, 0..1, left to right. Rendering only. */
+  offset?: number;
 }
 
 export interface RoomScope {
