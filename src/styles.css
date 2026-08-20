@@ -1776,3 +1776,37 @@ td select {
     transition: none;
   }
 }
+
+/* House plan — rooms grouped by floor, mirroring the room-list row
+   conventions (.room-card) above so the two screens read as one app. */
+.plan-floor {
+  margin-bottom: 20px;
+}
+.plan-floor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.plan-rooms {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.plan-room {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  padding: 10px 12px;
+}
+.plan-room-dims {
+  grid-column: 1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.plan-room-hours {
+  grid-column: 2;
+  font-variant-numeric: tabular-nums;
+}
