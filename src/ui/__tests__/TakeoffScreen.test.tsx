@@ -173,7 +173,7 @@ describe("TakeoffScreen", () => {
     expect(screen.queryByText(/no dimensions/i)).not.toBeInTheDocument();
 
     await userEvent.click(
-      screen.getByRole("button", { name: /back to room list/i }),
+      screen.getByRole("button", { name: /back to rooms list/i }),
     );
     expect(screen.getByText(/no dimensions/i)).toBeInTheDocument();
   });

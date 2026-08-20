@@ -147,7 +147,7 @@ export function RoomEditor({
           type="button"
           className="back-button"
           onClick={onBack}
-          aria-label="back to room list"
+          aria-label="back to rooms list"
         >
           <span aria-hidden="true" className="back-chevron" />
           Rooms

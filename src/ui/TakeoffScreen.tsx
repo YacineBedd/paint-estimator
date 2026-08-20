@@ -5,6 +5,7 @@ import { DEFAULT_RATE_PROFILE } from "../data/defaults";
 import { RoomEditor } from "./RoomEditor";
 import { RoomList } from "./RoomList";
 import { HousePlanScreen } from "./HousePlanScreen";
+import { Room3DEditor } from "./room3d/Room3DEditor";
 import { CustomSurfacesEditor } from "./CustomSurfacesEditor";
 import { QuickEstimateScreen } from "./QuickEstimateScreen";
 import { Disclosure } from "./Disclosure";
@@ -79,6 +80,11 @@ function SquareFootageStarter({ hasRooms, rates, priceBook }: StarterProps) {
 export function TakeoffScreen({ project, onChange }: Props) {
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "plan">("list");
+  // Which path opened the currently-editing room: the plan view opens the
+  // 3D editor (its whole reason for existing — that's where a room already
+  // reads as a shape you can click a wall on), while the list keeps the
+  // plain field editor his thumb already knows.
+  const [openedFrom, setOpenedFrom] = useState<"list" | "plan">("list");
 
   const estimate = useMemo(
     () => computeEstimate(project, Date.now()),
@@ -107,7 +113,11 @@ export function TakeoffScreen({ project, onChange }: Props) {
       rateProfile: project.rateProfile ?? DEFAULT_RATE_PROFILE,
     });
     // Land him in the editor with the cursor's worth of chrome already out
-    // of the way: he tapped "Add room" because he is standing in one.
+    // of the way: he tapped "Add room" because he is standing in one. A
+    // brand-new room has no dimensions yet, so the plain field editor (not
+    // the 3D view, which has nothing to draw until Wall 1/Wall 2 are set)
+    // is what he needs first, regardless of which view he was looking at.
+    setOpenedFrom("list");
     setEditingRoomId(id);
   };
 
@@ -122,10 +132,14 @@ export function TakeoffScreen({ project, onChange }: Props) {
       )
     : [];
 
+  // Same prop shape on both, by design (see Room3DEditor's own props),
+  // so which one renders is just a choice of component.
+  const Editor = openedFrom === "plan" ? Room3DEditor : RoomEditor;
+
   return (
     <div className="takeoff">
       {editingRoom ? (
-        <RoomEditor
+        <Editor
           key={editingRoom.id}
           room={editingRoom}
           geometry={geoById.get(editingRoom.id)}
@@ -176,14 +190,20 @@ export function TakeoffScreen({ project, onChange }: Props) {
               labor={estimate.labor}
               laborRate={project.rateProfile.laborRate}
               warnings={estimate.warnings}
-              onOpen={setEditingRoomId}
+              onOpen={(id) => {
+                setOpenedFrom("list");
+                setEditingRoomId(id);
+              }}
             />
           ) : (
             <HousePlanScreen
               rooms={project.rooms}
               labor={estimate.labor}
               laborRate={project.rateProfile.laborRate}
-              onOpen={setEditingRoomId}
+              onOpen={(id) => {
+                setOpenedFrom("plan");
+                setEditingRoomId(id);
+              }}
             />
           )}
 

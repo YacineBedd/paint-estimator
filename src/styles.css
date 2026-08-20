@@ -1828,3 +1828,35 @@ td select {
 .view-toggle button[aria-pressed="true"] {
   font-weight: 700;
 }
+
+/* ---------------------------------------------------------------------
+   20. Room3DEditor — the split layout
+   The 3D room and RoomEditor's own controls (section 9) side by side once
+   there is room for both; stacked, scene above panel, on a phone.
+   ------------------------------------------------------------------ */
+
+.room3d-editor {
+  display: block;
+}
+.room3d-tools {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.room3d-tools button {
+  min-height: var(--tap);
+}
+.room3d-tools button[aria-pressed="true"] {
+  font-weight: 700;
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-ink);
+}
+
+@media (min-width: 900px) {
+  .room3d-editor {
+    display: grid;
+    grid-template-columns: 1fr minmax(320px, 380px);
+    gap: var(--space-5);
+    align-items: start;
+  }
+}
