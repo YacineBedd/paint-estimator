@@ -1734,3 +1734,45 @@ td select {
     background: #171614;
   }
 }
+
+.room3d-viewport {
+  position: relative;
+  width: 100%;
+  min-height: 320px;
+  perspective: 1400px;
+  overflow: hidden;
+}
+.room3d-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-style: preserve-3d;
+  transition: transform 160ms ease-out;
+}
+.room3d-summary {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.room3d-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.room3d-controls button {
+  min-height: 44px;
+  min-width: 44px;
+}
+.room3d-empty {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--ink-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .room3d-stage {
+    transition: none;
+  }
+}
