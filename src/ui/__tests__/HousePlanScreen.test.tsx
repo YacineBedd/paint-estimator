@@ -151,4 +151,31 @@ describe("HousePlanScreen", () => {
       "not measured yet",
     );
   });
+
+  // F9: RoomList rendered a room's billed hours raw ({billed} h), which
+  // with "round each room up to whole hours" off can be a long floating-
+  // point value straight out of the engine. HousePlanScreen already routes
+  // the same figure through formatHours; RoomList has to match, or the two
+  // screens show two different-looking numbers for the identical room.
+  it("formats a room's billed hours to one decimal, never a raw float (F9)", () => {
+    const unrounded: Project = {
+      ...twoFloors,
+      rateProfile: { ...twoFloors.rateProfile, roundRoomHoursUp: false },
+    };
+    const estimate = computeEstimate(
+      unrounded,
+      Date.parse("2026-08-19T00:00:00Z"),
+    );
+    render(
+      <RoomList
+        rooms={unrounded.rooms}
+        labor={estimate.labor}
+        laborRate={unrounded.rateProfile.laborRate}
+        warnings={estimate.warnings}
+        onOpen={() => {}}
+      />,
+    );
+    const text = screen.getByTestId("room-card-a").textContent ?? "";
+    expect(text).toMatch(/\d+\.\d h(?!\d)/);
+  });
 });

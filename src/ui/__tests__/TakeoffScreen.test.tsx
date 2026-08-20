@@ -47,6 +47,22 @@ describe("TakeoffScreen", () => {
     expect(screen.getByTestId("total-price")).toHaveTextContent("4,4");
   });
 
+  // F9: the sticky footer rendered totalBilledHours raw ({...} billed),
+  // which with "round each room up to whole hours" off shows something
+  // like "7.175000000000001 billed" -- floating-point noise straight from
+  // the engine, on the one number he's staring at while quoting a job.
+  // Routing it through formatHours (already used for hoursWorked two lines
+  // up) fixes it the same way RoomList's and HousePlanScreen's hours do.
+  it("formats total billed hours to one decimal, never a raw float (F9)", () => {
+    const unrounded: Project = {
+      ...goldenJob,
+      rateProfile: { ...goldenJob.rateProfile, roundRoomHoursUp: false },
+    };
+    render(<TakeoffScreen project={unrounded} onChange={() => {}} />);
+    const text = screen.getByTestId("total-billed").textContent ?? "";
+    expect(text).toMatch(/^\d+\.\d billed$/);
+  });
+
   it("adds a room", async () => {
     const onChange = vi.fn();
     render(<TakeoffScreen project={goldenJob} onChange={onChange} />);

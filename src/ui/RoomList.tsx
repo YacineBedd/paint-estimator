@@ -1,5 +1,5 @@
 import type { LaborResult, Room, Warning } from "../engine/types";
-import { formatMoney, formatRoomSize } from "./format";
+import { formatHours, formatMoney, formatRoomSize } from "./format";
 
 interface Props {
   rooms: Room[];
@@ -71,7 +71,7 @@ export function RoomList({ rooms, labor, laborRate, warnings, onOpen }: Props) {
                 <span className="room-card-size">
                   {size ?? "not measured yet"}
                 </span>
-                <span className="room-card-hours">{billed} h</span>
+                <span className="room-card-hours">{formatHours(billed)} h</span>
               </button>
             </li>
           );

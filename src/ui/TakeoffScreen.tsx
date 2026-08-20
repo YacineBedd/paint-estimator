@@ -234,7 +234,7 @@ export function TakeoffScreen({ project, onChange }: Props) {
           {formatHours(estimate.labor.hoursWorked)} hrs worked
         </span>
         <span data-testid="total-billed">
-          {estimate.labor.totalBilledHours} billed
+          {formatHours(estimate.labor.totalBilledHours)} billed
         </span>
         <span data-testid="total-price">
           {formatMoney(estimate.pricing.total)}
