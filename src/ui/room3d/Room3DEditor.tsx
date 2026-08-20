@@ -22,25 +22,6 @@ interface Props {
 
 let placementCounter = 0;
 
-// projection.ts (Task 2, reviewed, do not modify) documents that the room's
-// faces have inward normals so backface-visibility:hidden culls the near
-// walls and you see into an open box — and, as a consequence, each wall's
-// local offset=0 end renders on the FAR side from where a person standing
-// inside facing that wall would put it. That is consistent across all four
-// walls (an inherent property of viewing the box from outside it, not an
-// accidental mirror).
-//
-// WallPlane's click handler (reviewed, do not modify) does not know about
-// that geometry: it reports a raw DOM fraction of the clicked wall's own
-// on-screen bounding box (0 = the box's screen-left edge, 1 = its
-// screen-right edge). Stored as-is, a click near a wall's visual left would
-// render its marker back out at the opposite end. This is the one place
-// that correction belongs — one uniform rule, not per-wall special cases,
-// because the mirror is uniform across all four walls.
-function correctMirroredOffset(rawOffset: number): number {
-  return 1 - rawOffset;
-}
-
 export function Room3DEditor({
   room,
   geometry,
@@ -52,13 +33,22 @@ export function Room3DEditor({
 }: Props) {
   const [armed, setArmed] = useState<OpeningKind | null>(null);
 
-  const place = (wallIndex: 0 | 1 | 2 | 3, rawOffset: number) => {
+  // WallPlane's click offset (0 = the clicked wall's own screen-left edge,
+  // 1 = its screen-right edge) is stored as-is. It looks like it should
+  // need correcting for the room's inward-facing wall normals (see
+  // projection.ts), but it doesn't: whichever wall is actually visible is
+  // only ever visible because backface-visibility:hidden let it through,
+  // and that visibility condition and the wall's own rotateY exactly
+  // cancel out — swept across every reachable orbit angle, a wall's local
+  // left is always its screen-left whenever that wall can be clicked at
+  // all. Click, storage, and render already round-trip correctly.
+  const place = (wallIndex: 0 | 1 | 2 | 3, offset: number) => {
     if (!armed) return;
     placementCounter += 1;
     const opening = {
       ...newOpening(armed, `place-${placementCounter}`),
       wallIndex,
-      offset: correctMirroredOffset(rawOffset),
+      offset,
     };
     onChange({ ...room, openings: [...room.openings, opening] });
     // One click places one opening. Staying armed makes it far too easy to
