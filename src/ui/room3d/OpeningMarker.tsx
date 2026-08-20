@@ -5,6 +5,7 @@ interface Props {
   opening: Opening;
   wallWidthFt: number;
   scale: number;
+  showTrim: boolean;
   onSelect: (id: string) => void;
 }
 
@@ -12,10 +13,15 @@ export function OpeningMarker({
   opening,
   wallWidthFt,
   scale,
+  showTrim,
   onSelect,
 }: Props) {
   const box = openingBox(opening, wallWidthFt, scale);
-  const cased = opening.casedSides > 0 ? " cased" : "";
+  // The engine zeroes casingLinFt when scope.trim is off (see
+  // geometry.ts), so the picture has to match: showing a cased border while
+  // trim is switched off tells him casing is being painted when nothing is
+  // being charged for it.
+  const cased = showTrim && opening.casedSides > 0 ? " cased" : "";
 
   return (
     <button

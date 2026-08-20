@@ -152,4 +152,21 @@ describe("WallPlane", () => {
     rerender(<WallPlane {...base} openings={[win({ casedSides: 0 })]} />);
     expect(screen.getByTestId("opening-w1").className).not.toMatch(/cased/);
   });
+
+  // F4: the engine zeroes casingLinFt whenever scope.trim is off (see
+  // geometry.ts), so an opening with casedSides > 0 must NOT render as
+  // cased while trim is switched off -- otherwise the picture claims
+  // casing is being painted (border still drawn) while the estimate has
+  // charged nothing for it. showTrim previously reached the baseboard but
+  // was never forwarded past WallPlane to OpeningMarker at all.
+  it("omits casing when trim scope is off, even with cased sides > 0", () => {
+    render(
+      <WallPlane
+        {...base}
+        showTrim={false}
+        openings={[win({ casedSides: 2 })]}
+      />,
+    );
+    expect(screen.getByTestId("opening-w1").className).not.toMatch(/cased/);
+  });
 });

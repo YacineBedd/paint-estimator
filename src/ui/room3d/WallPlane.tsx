@@ -57,6 +57,7 @@ export function WallPlane({
           opening={o}
           wallWidthFt={face.widthFt}
           scale={scale}
+          showTrim={showTrim}
           onSelect={onSelectOpening}
         />
       ))}
