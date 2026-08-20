@@ -489,12 +489,28 @@ describe("TakeoffScreen", () => {
       expect(screen.queryByTestId("floor-heading-1")).not.toBeInTheDocument();
     });
 
-    it("opening a room from the plan opens that room", async () => {
+    // Room3DEditor renders RoomEditor internally (see Room3DEditor.tsx), so
+    // an assertion on the room-name input alone passes whichever editor the
+    // "plan" branch actually opens -- it would still pass even with the
+    // ternary in TakeoffScreen deleted and Room3DEditor never rendered at
+    // all. face-wall-0 only exists in the 3D view, so it's the one thing
+    // that actually distinguishes "opened the 3D editor" from "opened the
+    // plain field editor".
+    it("opening a room from the plan opens the 3D editor", async () => {
       render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
       await userEvent.click(screen.getByRole("button", { name: /^plan$/i }));
       const first = goldenJob.rooms[0]!;
       await userEvent.click(screen.getByTestId(`plan-room-${first.id}`));
       expect(screen.getByDisplayValue(first.name)).toBeInTheDocument();
+      expect(screen.getByTestId("face-wall-0")).toBeInTheDocument();
+    });
+
+    it("opening a room from the list does not open the 3D editor", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      const first = goldenJob.rooms[0]!;
+      await openRoom(first.id);
+      expect(screen.getByDisplayValue(first.name)).toBeInTheDocument();
+      expect(screen.queryByTestId("face-wall-0")).not.toBeInTheDocument();
     });
 
     // The toggle belongs to the room-CHOOSING step, not the room-editing
