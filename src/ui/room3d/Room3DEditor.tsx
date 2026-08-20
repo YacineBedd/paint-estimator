@@ -8,6 +8,7 @@ import type {
 } from "../../engine/types";
 import { RoomEditor } from "../RoomEditor";
 import { newOpening } from "../OpeningsEditor";
+import { nextId } from "../idGen";
 import { Room3D } from "./Room3D";
 
 interface Props {
@@ -19,8 +20,6 @@ interface Props {
   onRemove: () => void;
   onBack: () => void;
 }
-
-let placementCounter = 0;
 
 // Below 900px the painter is one-handed with a tape measure, not building
 // the room — see the module-level note in the split editor's styles
@@ -73,9 +72,8 @@ export function Room3DEditor({
   // all. Click, storage, and render already round-trip correctly.
   const place = (wallIndex: 0 | 1 | 2 | 3, offset: number) => {
     if (!isWide || !armed) return;
-    placementCounter += 1;
     const opening = {
-      ...newOpening(armed, `place-${placementCounter}`),
+      ...newOpening(armed, nextId("place")),
       wallIndex,
       offset,
     };
