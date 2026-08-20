@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Room3DEditor } from "../Room3DEditor";
@@ -137,5 +137,55 @@ describe("Room3DEditor", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+function stubMatchMedia(matches: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
+}
+
+describe("Room3DEditor on a phone", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("hides the placement tools below 900px", () => {
+    stubMatchMedia(false);
+    render(<Room3DEditor {...props} />);
+    expect(
+      screen.queryByRole("button", { name: /place window/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still renders the room so he can show it to a client", () => {
+    stubMatchMedia(false);
+    render(<Room3DEditor {...props} />);
+    expect(screen.getByTestId("face-wall-0")).toBeInTheDocument();
+  });
+
+  it("ignores wall clicks below 900px rather than placing", async () => {
+    stubMatchMedia(false);
+    const onChange = vi.fn();
+    render(<Room3DEditor {...props} onChange={onChange} />);
+    await userEvent.click(screen.getByTestId("face-wall-0"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("shows the placement tools at 900px and up", () => {
+    stubMatchMedia(true);
+    render(<Room3DEditor {...props} />);
+    expect(
+      screen.getByRole("button", { name: /place window/i }),
+    ).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   OpeningKind,
   PaintProduct,
@@ -22,6 +22,34 @@ interface Props {
 
 let placementCounter = 0;
 
+// Below 900px the painter is one-handed with a tape measure, not building
+// the room — see the module-level note in the split editor's styles
+// (section 20). matchMedia is absent in jsdom unless a test stubs it, so
+// both the initial state and the effect guard for it; defaulting to wide
+// means an environment that can't tell gets the full tool, not a crippled
+// one.
+function useIsWide(): boolean {
+  const [wide, setWide] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(min-width: 900px)").matches
+      : true,
+  );
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    )
+      return;
+    const mq = window.matchMedia("(min-width: 900px)");
+    const onChange = (e: MediaQueryListEvent) => setWide(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return wide;
+}
+
 export function Room3DEditor({
   room,
   geometry,
@@ -32,6 +60,7 @@ export function Room3DEditor({
   onBack,
 }: Props) {
   const [armed, setArmed] = useState<OpeningKind | null>(null);
+  const isWide = useIsWide();
 
   // WallPlane's click offset (0 = the clicked wall's own screen-left edge,
   // 1 = its screen-right edge) is stored as-is. It looks like it should
@@ -43,7 +72,7 @@ export function Room3DEditor({
   // left is always its screen-left whenever that wall can be clicked at
   // all. Click, storage, and render already round-trip correctly.
   const place = (wallIndex: 0 | 1 | 2 | 3, offset: number) => {
-    if (!armed) return;
+    if (!isWide || !armed) return;
     placementCounter += 1;
     const opening = {
       ...newOpening(armed, `place-${placementCounter}`),
@@ -59,22 +88,24 @@ export function Room3DEditor({
   return (
     <div className="room3d-editor">
       <div className="room3d-editor-scene">
-        <div className="room3d-tools">
-          <button
-            type="button"
-            aria-pressed={armed === "door"}
-            onClick={() => setArmed(armed === "door" ? null : "door")}
-          >
-            Place door
-          </button>
-          <button
-            type="button"
-            aria-pressed={armed === "window"}
-            onClick={() => setArmed(armed === "window" ? null : "window")}
-          >
-            Place window
-          </button>
-        </div>
+        {isWide && (
+          <div className="room3d-tools">
+            <button
+              type="button"
+              aria-pressed={armed === "door"}
+              onClick={() => setArmed(armed === "door" ? null : "door")}
+            >
+              Place door
+            </button>
+            <button
+              type="button"
+              aria-pressed={armed === "window"}
+              onClick={() => setArmed(armed === "window" ? null : "window")}
+            >
+              Place window
+            </button>
+          </div>
+        )}
 
         <Room3D
           room={room}
