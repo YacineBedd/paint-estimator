@@ -47,6 +47,22 @@ describe("TakeoffScreen", () => {
     expect(screen.getByTestId("total-price")).toHaveTextContent("4,4");
   });
 
+  // F9: the sticky footer rendered totalBilledHours raw ({...} billed),
+  // which with "round each room up to whole hours" off shows something
+  // like "7.175000000000001 billed" -- floating-point noise straight from
+  // the engine, on the one number he's staring at while quoting a job.
+  // Routing it through formatHours (already used for hoursWorked two lines
+  // up) fixes it the same way RoomList's and HousePlanScreen's hours do.
+  it("formats total billed hours to one decimal, never a raw float (F9)", () => {
+    const unrounded: Project = {
+      ...goldenJob,
+      rateProfile: { ...goldenJob.rateProfile, roundRoomHoursUp: false },
+    };
+    render(<TakeoffScreen project={unrounded} onChange={() => {}} />);
+    const text = screen.getByTestId("total-billed").textContent ?? "";
+    expect(text).toMatch(/^\d+\.\d billed$/);
+  });
+
   it("adds a room", async () => {
     const onChange = vi.fn();
     render(<TakeoffScreen project={goldenJob} onChange={onChange} />);
@@ -173,7 +189,7 @@ describe("TakeoffScreen", () => {
     expect(screen.queryByText(/no dimensions/i)).not.toBeInTheDocument();
 
     await userEvent.click(
-      screen.getByRole("button", { name: /back to room list/i }),
+      screen.getByRole("button", { name: /back to rooms list/i }),
     );
     expect(screen.getByText(/no dimensions/i)).toBeInTheDocument();
   });
@@ -464,6 +480,66 @@ describe("TakeoffScreen", () => {
 
       await openPanel(/start from square footage/i);
       expect(screen.getByLabelText(/square feet/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("List / Plan toggle", () => {
+    it("shows the list by default", () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      expect(
+        screen.getByRole("button", { name: /^list$/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId("floor-heading-1")).not.toBeInTheDocument();
+    });
+
+    it("switches to the plan and groups by floor", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      await userEvent.click(screen.getByRole("button", { name: /^plan$/i }));
+      expect(screen.getByTestId("floor-heading-1")).toBeInTheDocument();
+    });
+
+    it("switches back to the list", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      await userEvent.click(screen.getByRole("button", { name: /^plan$/i }));
+      await userEvent.click(screen.getByRole("button", { name: /^list$/i }));
+      expect(screen.queryByTestId("floor-heading-1")).not.toBeInTheDocument();
+    });
+
+    // Room3DEditor renders RoomEditor internally (see Room3DEditor.tsx), so
+    // an assertion on the room-name input alone passes whichever editor the
+    // "plan" branch actually opens -- it would still pass even with the
+    // ternary in TakeoffScreen deleted and Room3DEditor never rendered at
+    // all. face-wall-0 only exists in the 3D view, so it's the one thing
+    // that actually distinguishes "opened the 3D editor" from "opened the
+    // plain field editor".
+    it("opening a room from the plan opens the 3D editor", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      await userEvent.click(screen.getByRole("button", { name: /^plan$/i }));
+      const first = goldenJob.rooms[0]!;
+      await userEvent.click(screen.getByTestId(`plan-room-${first.id}`));
+      expect(screen.getByDisplayValue(first.name)).toBeInTheDocument();
+      expect(screen.getByTestId("face-wall-0")).toBeInTheDocument();
+    });
+
+    it("opening a room from the list does not open the 3D editor", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      const first = goldenJob.rooms[0]!;
+      await openRoom(first.id);
+      expect(screen.getByDisplayValue(first.name)).toBeInTheDocument();
+      expect(screen.queryByTestId("face-wall-0")).not.toBeInTheDocument();
+    });
+
+    // The toggle belongs to the room-CHOOSING step, not the room-editing
+    // step: once a room is open there is no "view" to switch between.
+    it("hides the toggle while a room is open", async () => {
+      render(<TakeoffScreen project={goldenJob} onChange={() => {}} />);
+      await openRoom("r1");
+      expect(
+        screen.queryByRole("button", { name: /^list$/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /^plan$/i }),
+      ).not.toBeInTheDocument();
     });
   });
 });

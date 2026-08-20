@@ -1653,3 +1653,237 @@ td select {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------
+   18. 3D room
+   ------------------------------------------------------------------ */
+
+.face {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-style: preserve-3d;
+  /* Hides the faces between the camera and the room, so you see inside. */
+  backface-visibility: hidden;
+  border: 1px solid var(--line);
+  box-sizing: border-box;
+  margin: 0;
+}
+/* Value, not hue: the room reads as a box without any paint colour. Each
+   fill reuses an existing neutral token, so dark mode falls out for free
+   from that token's own override above instead of needing one here. */
+.face-wall {
+  background: var(--paper-alt);
+}
+.face-ceiling {
+  background: var(--paper);
+}
+.face-floor {
+  background: var(--bg);
+}
+
+.face.hatched {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.18) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.baseboard {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  background: var(--line-soft);
+  border-top: 1px solid var(--line);
+}
+
+.opening {
+  position: absolute;
+  padding: 0;
+  /* A hole in the wall, not a themed surface — kept literal rather than
+     tied to a token, with a dark-mode override below since no existing
+     variable stays dark in both colour schemes. */
+  background: #6f6a62;
+  border: none;
+  cursor: pointer;
+  min-width: 8px;
+  min-height: 8px;
+}
+.opening.cased {
+  border: 3px solid var(--line-soft);
+}
+.opening-door {
+  background: #5d584f;
+}
+
+.face-annotation {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .opening {
+    background: #171614;
+  }
+
+  /* In light mode the face fills (--paper for ceiling, --paper-alt for
+     wall, --bg for floor) put the ceiling lightest and the floor darkest.
+     In dark mode --paper-alt (#242830) is actually LIGHTER than --paper
+     (#1d2127), so reusing them unswapped put the wall above the ceiling
+     and inverted that ordering. Swapping which literal each face uses
+     here restores the same lightest-to-darkest ordering as light mode,
+     without touching --paper/--paper-alt themselves (they're both used
+     all over the rest of the app for unrelated surfaces). */
+  .face-wall {
+    background: #1d2127;
+  }
+  .face-ceiling {
+    background: #242830;
+  }
+
+  /* rgba(0,0,0,0.18) stripes over the dark wall token (#242830, blending
+     to ~#1d2127 -- coincidentally the exact colour of an in-scope
+     ceiling) are invisible. The spec calls this treatment "unmissable",
+     so dark mode needs light stripes instead of dark ones. */
+  .face.hatched {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.22) 0 6px,
+      transparent 6px 12px
+    );
+  }
+}
+
+.room3d-viewport {
+  position: relative;
+  width: 100%;
+  min-height: 320px;
+  perspective: 1400px;
+  overflow: hidden;
+}
+.room3d-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-style: preserve-3d;
+  transition: transform 160ms ease-out;
+}
+.room3d-summary {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.room3d-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.room3d-controls button {
+  min-height: 44px;
+  min-width: 44px;
+}
+.room3d-empty {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--ink-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .room3d-stage {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   19. House plan & List/Plan toggle
+   Rooms grouped by floor, mirroring the room-list row conventions
+   (.room-card, section 8) above so the two screens read as one app.
+   ------------------------------------------------------------------ */
+
+.plan-floor {
+  margin-bottom: 20px;
+}
+.plan-floor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.plan-rooms {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.plan-room {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  padding: 10px 12px;
+}
+.plan-room-dims {
+  grid-column: 1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.plan-room-hours {
+  grid-column: 2;
+  font-variant-numeric: tabular-nums;
+}
+
+/* List/Plan toggle above the room-choosing step. */
+.view-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+}
+.view-toggle button {
+  min-height: 44px;
+  flex: 1;
+}
+.view-toggle button[aria-pressed="true"] {
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------
+   20. Room3DEditor — the split layout
+   The 3D room and RoomEditor's own controls (section 9) side by side once
+   there is room for both; stacked, scene above panel, on a phone.
+   ------------------------------------------------------------------ */
+
+.room3d-editor {
+  display: block;
+}
+.room3d-tools {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.room3d-tools button {
+  min-height: var(--tap);
+}
+.room3d-tools button[aria-pressed="true"] {
+  font-weight: 700;
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-ink);
+}
+
+@media (min-width: 900px) {
+  .room3d-editor {
+    display: grid;
+    grid-template-columns: 1fr minmax(320px, 380px);
+    gap: var(--space-5);
+    align-items: start;
+  }
+}

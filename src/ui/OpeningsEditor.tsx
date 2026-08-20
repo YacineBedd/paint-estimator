@@ -1,10 +1,25 @@
 import { useEffect, useState } from "react";
 import type { Opening, OpeningKind } from "../engine/types";
+import { nextId } from "./idGen";
 
 const DEFAULTS: Record<OpeningKind, { width: number; height: number }> = {
   door: { width: 3, height: 7 },
   window: { width: 4, height: 3 },
   passage: { width: 5, height: 7 },
+};
+
+// A door or passage is an interior opening: both faces of its frame are
+// inside the house, so both get cased. A window sits in an exterior wall —
+// only the interior face is ever cased; the exterior face is siding/brick
+// trim that this estimate doesn't touch. Defaulting a window to 2 cased
+// sides overstates its casing linear footage enough to make adding a
+// window raise the bid (28 linear ft of casing on a 4x3 window vs. the 12
+// sq ft of wall it removes) -- exactly backwards for what a window should
+// do to the number.
+const DEFAULT_CASED_SIDES: Record<OpeningKind, 0 | 1 | 2> = {
+  door: 2,
+  window: 1,
+  passage: 2,
 };
 
 export function newOpening(kind: OpeningKind, id: string): Opening {
@@ -14,18 +29,8 @@ export function newOpening(kind: OpeningKind, id: string): Opening {
     quantity: 1,
     ...DEFAULTS[kind],
     paintSlab: kind === "door",
-    casedSides: 2,
+    casedSides: DEFAULT_CASED_SIDES[kind],
   };
-}
-
-// Monotonically increasing counter, module-scoped. Date.now() can collide
-// when two openings are added within the same millisecond (fast clicks,
-// synthetic test events); a counter is deterministic and always unique
-// across the lifetime of the page, regardless of timing.
-let openingIdSeq = 0;
-function nextOpeningId(kind: OpeningKind): string {
-  openingIdSeq += 1;
-  return `${kind}-${openingIdSeq}`;
 }
 
 interface RowProps {
@@ -137,7 +142,7 @@ export function OpeningsEditor({ openings, onChange }: Props) {
     onChange(openings.map((o) => (o.id === id ? { ...o, ...patch } : o)));
 
   const add = (kind: OpeningKind) =>
-    onChange([...openings, newOpening(kind, nextOpeningId(kind))]);
+    onChange([...openings, newOpening(kind, nextId(kind))]);
 
   return (
     <div className="openings">
