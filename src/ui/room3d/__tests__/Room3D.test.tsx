@@ -101,6 +101,36 @@ describe("Room3D", () => {
     expect(new Set(first).size).toBe(4); // spread, not piled on one wall
   });
 
+  it("indexes unplaced openings against the full array, not a filtered one", () => {
+    // Regression guard: if wallFor's index came from a pre-filtered
+    // unplaced-only list instead of room.openings, "c" would land on wall 1
+    // (its position among unplaced openings) instead of wall 2 (its real
+    // array position). Do not "simplify" this by filtering first.
+    const room = makeRoom([
+      win("a"), // index 0, unplaced -> wall 0
+      win("b", { wallIndex: 2 }), // explicit -> wall 2
+      win("c"), // index 2, unplaced -> wall 2 (2 % 4)
+    ]);
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+      />,
+    );
+    const wallOf = (id: string) =>
+      screen
+        .getByTestId(`opening-${id}`)
+        .closest(".face")!
+        .getAttribute("data-testid");
+
+    expect(wallOf("a")).toBe("face-wall-0");
+    expect(wallOf("b")).toBe("face-wall-2");
+    expect(wallOf("c")).toBe("face-wall-2");
+  });
+
   it("annotates a wall with gross, deduction and net area", () => {
     const room = makeRoom([win("a", { wallIndex: 0 })]);
     render(
