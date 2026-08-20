@@ -1653,3 +1653,84 @@ td select {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------
+   18. 3D room
+   ------------------------------------------------------------------ */
+
+.face {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-style: preserve-3d;
+  /* Hides the faces between the camera and the room, so you see inside. */
+  backface-visibility: hidden;
+  border: 1px solid var(--line);
+  box-sizing: border-box;
+  margin: 0;
+}
+/* Value, not hue: the room reads as a box without any paint colour. Each
+   fill reuses an existing neutral token, so dark mode falls out for free
+   from that token's own override above instead of needing one here. */
+.face-wall {
+  background: var(--paper-alt);
+}
+.face-ceiling {
+  background: var(--paper);
+}
+.face-floor {
+  background: var(--bg);
+}
+
+.face.hatched {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.18) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.baseboard {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  background: var(--line-soft);
+  border-top: 1px solid var(--line);
+}
+
+.opening {
+  position: absolute;
+  padding: 0;
+  /* A hole in the wall, not a themed surface — kept literal rather than
+     tied to a token, with a dark-mode override below since no existing
+     variable stays dark in both colour schemes. */
+  background: #6f6a62;
+  border: none;
+  cursor: pointer;
+  min-width: 8px;
+  min-height: 8px;
+}
+.opening.cased {
+  border: 3px solid var(--line-soft);
+}
+.opening-door {
+  background: #5d584f;
+}
+
+.face-annotation {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .opening {
+    background: #171614;
+  }
+}

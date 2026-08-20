@@ -1,0 +1,107 @@
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { WallPlane } from "../WallPlane";
+import { projectRoom } from "../projection";
+import type { Opening } from "../../../engine/types";
+
+const proj = projectRoom(10, 12, 8, 400);
+const wall0 = proj.faces.find((f) => f.wallIndex === 0)!;
+
+const win = (over: Partial<Opening> = {}): Opening => ({
+  id: "w1",
+  kind: "window",
+  quantity: 1,
+  width: 4,
+  height: 3,
+  paintSlab: false,
+  casedSides: 1,
+  ...over,
+});
+
+const base = {
+  face: wall0,
+  scale: proj.scale,
+  inScope: true,
+  showTrim: true,
+  annotation: "10 × 8 = 80 sq ft",
+  onPlace: () => {},
+  onSelectOpening: () => {},
+};
+
+describe("WallPlane", () => {
+  it("renders the face with its projected transform", () => {
+    render(<WallPlane {...base} openings={[]} />);
+    const el = screen.getByTestId("face-wall-0");
+    expect(el).toBeInTheDocument();
+    expect(el.style.transform).toBe(wall0.transform);
+  });
+
+  it("renders one marker per opening", () => {
+    render(<WallPlane {...base} openings={[win(), win({ id: "w2" })]} />);
+    expect(screen.getByTestId("opening-w1")).toBeInTheDocument();
+    expect(screen.getByTestId("opening-w2")).toBeInTheDocument();
+  });
+
+  it("shows the annotation", () => {
+    render(<WallPlane {...base} openings={[]} />);
+    expect(screen.getByText("10 × 8 = 80 sq ft")).toBeInTheDocument();
+  });
+
+  it("draws baseboard when trim is on and omits it when off", () => {
+    const { rerender } = render(<WallPlane {...base} openings={[]} />);
+    expect(screen.getByTestId("baseboard-wall-0")).toBeInTheDocument();
+    rerender(<WallPlane {...base} showTrim={false} openings={[]} />);
+    expect(screen.queryByTestId("baseboard-wall-0")).not.toBeInTheDocument();
+  });
+
+  it("marks an out-of-scope face as hatched", () => {
+    render(<WallPlane {...base} inScope={false} openings={[]} />);
+    expect(screen.getByTestId("face-wall-0").className).toMatch(/hatched/);
+  });
+
+  it("reports a normalised offset when the wall is clicked", async () => {
+    const onPlace = vi.fn();
+    render(<WallPlane {...base} onPlace={onPlace} openings={[]} />);
+    const el = screen.getByTestId("face-wall-0");
+    // jsdom reports zero-size rects, so the component must fall back to 0.5
+    // rather than dividing by zero.
+    await userEvent.click(el);
+    expect(onPlace).toHaveBeenCalledTimes(1);
+    const offset = onPlace.mock.calls[0]![0];
+    expect(offset).toBeGreaterThanOrEqual(0);
+    expect(offset).toBeLessThanOrEqual(1);
+  });
+
+  it("does not report a placement when the face is out of scope", async () => {
+    const onPlace = vi.fn();
+    render(
+      <WallPlane {...base} inScope={false} onPlace={onPlace} openings={[]} />,
+    );
+    await userEvent.click(screen.getByTestId("face-wall-0"));
+    expect(onPlace).not.toHaveBeenCalled();
+  });
+
+  it("selects an opening without also placing a new one", async () => {
+    const onPlace = vi.fn();
+    const onSelectOpening = vi.fn();
+    render(
+      <WallPlane
+        {...base}
+        onPlace={onPlace}
+        onSelectOpening={onSelectOpening}
+        openings={[win()]}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("opening-w1"));
+    expect(onSelectOpening).toHaveBeenCalledWith("w1");
+    expect(onPlace).not.toHaveBeenCalled();
+  });
+
+  it("draws casing on an opening with cased sides and omits it at zero", () => {
+    const { rerender } = render(<WallPlane {...base} openings={[win()]} />);
+    expect(screen.getByTestId("opening-w1").className).toMatch(/cased/);
+    rerender(<WallPlane {...base} openings={[win({ casedSides: 0 })]} />);
+    expect(screen.getByTestId("opening-w1").className).not.toMatch(/cased/);
+  });
+});
