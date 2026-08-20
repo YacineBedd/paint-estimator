@@ -1,0 +1,149 @@
+import { describe, it, expect } from "vitest";
+import {
+  PX_PER_FT_MAX,
+  WINDOW_SILL_FT,
+  clampPitch,
+  clampYaw,
+  openingBox,
+  orbitTransform,
+  projectRoom,
+} from "../projection";
+import type { Opening } from "../../../engine/types";
+
+const win = (over: Partial<Opening> = {}): Opening => ({
+  id: "o",
+  kind: "window",
+  quantity: 1,
+  width: 4,
+  height: 3,
+  paintSlab: false,
+  casedSides: 1,
+  ...over,
+});
+
+describe("projectRoom", () => {
+  it("returns six faces: four walls, floor, ceiling", () => {
+    const p = projectRoom(10, 12, 8, 400);
+    expect(p.faces).toHaveLength(6);
+    expect(p.faces.filter((f) => f.kind === "wall")).toHaveLength(4);
+    expect(p.faces.filter((f) => f.kind === "floor")).toHaveLength(1);
+    expect(p.faces.filter((f) => f.kind === "ceiling")).toHaveLength(1);
+  });
+
+  it("gives walls 0 and 2 the room width, walls 1 and 3 the depth", () => {
+    const p = projectRoom(10, 12, 8, 400);
+    const byIndex = (i: number) => p.faces.find((f) => f.wallIndex === i)!;
+    expect(byIndex(0).widthFt).toBe(10);
+    expect(byIndex(2).widthFt).toBe(10);
+    expect(byIndex(1).widthFt).toBe(12);
+    expect(byIndex(3).widthFt).toBe(12);
+  });
+
+  it("gives every wall the ceiling height", () => {
+    const p = projectRoom(10, 12, 8, 400);
+    for (const f of p.faces.filter((x) => x.kind === "wall")) {
+      expect(f.heightFt).toBe(8);
+    }
+  });
+
+  it("sizes floor and ceiling to the footprint", () => {
+    const p = projectRoom(10, 12, 8, 400);
+    const floor = p.faces.find((f) => f.kind === "floor")!;
+    expect(floor.widthFt).toBe(10);
+    expect(floor.heightFt).toBe(12);
+  });
+
+  it("scales the largest dimension to fit maxPx", () => {
+    const p = projectRoom(10, 20, 8, 400);
+    expect(p.scale * 20).toBeLessThanOrEqual(400);
+    expect(p.scale).toBeGreaterThan(0);
+  });
+
+  it("never exceeds PX_PER_FT_MAX on a small room", () => {
+    const p = projectRoom(2, 2, 8, 4000);
+    expect(p.scale).toBeLessThanOrEqual(PX_PER_FT_MAX);
+  });
+
+  it("places each wall on its own axis", () => {
+    const p = projectRoom(10, 12, 8, 400);
+    const t = (i: number) => p.faces.find((f) => f.wallIndex === i)!.transform;
+    expect(t(0)).toContain("translateZ(");
+    expect(t(1)).toContain("rotateY(90deg)");
+    expect(t(2)).toContain("rotateY(180deg)");
+    expect(t(3)).toContain("rotateY(-90deg)");
+    expect(p.faces.find((f) => f.kind === "floor")!.transform).toContain(
+      "rotateX(90deg)",
+    );
+  });
+
+  it("returns a degenerate but safe projection for a zero-size room", () => {
+    const p = projectRoom(0, 0, 0, 400);
+    expect(p.faces).toHaveLength(6);
+    for (const f of p.faces) {
+      expect(f.widthPx).toBeGreaterThanOrEqual(0);
+      expect(f.heightPx).toBeGreaterThanOrEqual(0);
+      expect(Number.isFinite(f.widthPx)).toBe(true);
+    }
+    expect(Number.isFinite(p.scale)).toBe(true);
+  });
+
+  it("clamps negative dimensions to zero rather than inverting the box", () => {
+    const p = projectRoom(-10, 12, 8, 400);
+    const w0 = p.faces.find((f) => f.wallIndex === 0)!;
+    expect(w0.widthFt).toBe(0);
+    expect(w0.widthPx).toBe(0);
+  });
+});
+
+describe("orbit", () => {
+  it("composes pitch then yaw", () => {
+    expect(orbitTransform(30, -20)).toBe("rotateX(-20deg) rotateY(30deg)");
+  });
+
+  it("clamps pitch so the camera never drops below the floor", () => {
+    expect(clampPitch(-90)).toBe(-60);
+    expect(clampPitch(40)).toBe(5);
+    expect(clampPitch(-10)).toBe(-10);
+  });
+
+  it("wraps yaw into 0..360 so it never grows unbounded", () => {
+    expect(clampYaw(370)).toBe(10);
+    expect(clampYaw(-10)).toBe(350);
+    expect(clampYaw(45)).toBe(45);
+  });
+});
+
+describe("openingBox", () => {
+  it("centres an opening on its offset along the wall", () => {
+    const box = openingBox(win({ offset: 0.5 }), 10, 20);
+    // wall 200px wide, opening 80px wide, centred at 100 → left 60
+    expect(box.widthPx).toBe(80);
+    expect(box.leftPx).toBe(60);
+  });
+
+  it("defaults a missing offset to the wall centre", () => {
+    const box = openingBox(win({}), 10, 20);
+    expect(box.leftPx).toBe(60);
+  });
+
+  it("keeps an opening inside the wall at offset 0 and 1", () => {
+    const left = openingBox(win({ offset: 0 }), 10, 20);
+    const right = openingBox(win({ offset: 1 }), 10, 20);
+    expect(left.leftPx).toBe(0);
+    expect(right.leftPx).toBe(200 - 80);
+  });
+
+  it("sits a door on the floor and a window at the sill height", () => {
+    const door = openingBox(win({ kind: "door", width: 3, height: 7 }), 10, 20);
+    const window = openingBox(win({}), 10, 20);
+    expect(door.bottomPx).toBe(0);
+    expect(window.bottomPx).toBe(WINDOW_SILL_FT * 20);
+  });
+
+  it("never returns a negative box for bad input", () => {
+    const box = openingBox(win({ width: -4, height: -3, offset: -1 }), 10, 20);
+    expect(box.widthPx).toBeGreaterThanOrEqual(0);
+    expect(box.heightPx).toBeGreaterThanOrEqual(0);
+    expect(box.leftPx).toBeGreaterThanOrEqual(0);
+  });
+});
