@@ -37,8 +37,12 @@ export function HousePlanScreen({ rooms, labor, laborRate, onOpen }: Props) {
           <section key={floor} className="plan-floor">
             <header className="plan-floor-head">
               <h3 data-testid={`floor-heading-${floor}`}>Floor {floor}</h3>
+              {/* Same figure, same caveat as RoomList's "Labour" column: it
+                  excludes materials and travel, so floor totals summed
+                  across the plan don't equal laborCost. Uncaptioned this
+                  reads as "what this floor costs" instead of what it is. */}
               <span data-testid={`floor-total-${floor}`}>
-                {formatMoney(floorHours * laborRate)}
+                Labour {formatMoney(floorHours * laborRate)}
               </span>
             </header>
             <ul className="plan-rooms">
