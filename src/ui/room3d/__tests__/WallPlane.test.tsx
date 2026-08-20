@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WallPlane } from "../WallPlane";
 import { projectRoom } from "../projection";
@@ -71,6 +71,54 @@ describe("WallPlane", () => {
     const offset = onPlace.mock.calls[0]![0];
     expect(offset).toBeGreaterThanOrEqual(0);
     expect(offset).toBeLessThanOrEqual(1);
+  });
+
+  it("computes the offset from clientX and the measured rect, not just the fallback range", () => {
+    // jsdom's getBoundingClientRect() is always zero-size, so without
+    // stubbing it every click test above falls into the ": 0.5" fallback
+    // branch and never exercises (clientX - rect.left) / rect.width. Stub a
+    // real box here so a mutation to that formula (wrong axis, swapped
+    // operands, clientY instead of clientX) would fail these assertions.
+    const rect: DOMRect = {
+      left: 100,
+      top: 0,
+      width: 200,
+      height: 100,
+      right: 300,
+      bottom: 100,
+      x: 100,
+      y: 0,
+      toJSON() {
+        return this;
+      },
+    };
+    const spy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue(rect);
+
+    try {
+      const cases: Array<[number, number]> = [
+        [150, 0.25], // a quarter of the way across
+        [100, 0], // left edge
+        [300, 1], // right edge
+        [50, 0], // left of the face, clamped
+        [400, 1], // right of the face, clamped
+      ];
+
+      for (const [clientX, expected] of cases) {
+        const onPlace = vi.fn();
+        const { unmount } = render(
+          <WallPlane {...base} onPlace={onPlace} openings={[]} />,
+        );
+        const el = screen.getByTestId("face-wall-0");
+        fireEvent.click(el, { clientX });
+        expect(onPlace).toHaveBeenCalledTimes(1);
+        expect(onPlace.mock.calls[0]![0]).toBe(expected);
+        unmount();
+      }
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("does not report a placement when the face is out of scope", async () => {
