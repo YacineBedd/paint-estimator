@@ -1780,6 +1780,11 @@ td select {
 .room3d-viewport {
   position: relative;
   width: 100%;
+  /* Room3D sets an explicit inline height here, sized to the projected
+     box's actual on-screen extent at the current tilt (see the
+     verticalExtentPx comment in Room3D.tsx) -- min-height is only a
+     same-value fallback for the instant before that inline style is
+     applied, not something that should ever visibly kick in on its own. */
   min-height: 320px;
   perspective: 1400px;
   overflow: hidden;
