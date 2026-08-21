@@ -10,6 +10,7 @@ interface Props {
   inScope: boolean;
   showTrim: boolean;
   annotation: string;
+  selectedOpeningId?: string | null;
   onPlace: (offset: number) => void;
   onSelectOpening: (id: string) => void;
 }
@@ -21,6 +22,7 @@ export function WallPlane({
   inScope,
   showTrim,
   annotation,
+  selectedOpeningId,
   onPlace,
   onSelectOpening,
 }: Props) {
@@ -58,6 +60,7 @@ export function WallPlane({
           wallWidthFt={face.widthFt}
           scale={scale}
           showTrim={showTrim}
+          selected={o.id === selectedOpeningId}
           onSelect={onSelectOpening}
         />
       ))}

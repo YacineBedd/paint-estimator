@@ -948,6 +948,13 @@ button[aria-label^="remove"] {
   padding: var(--space-3);
   margin-bottom: var(--space-2);
 }
+/* G1: mirrors the 3D view's own .opening.selected treatment so a row
+   selected by clicking its marker reads as the same "this one" state on
+   both halves of the split layout. */
+.opening-row.selected {
+  background: var(--accent-soft-bg);
+  border-color: var(--accent-soft-ink);
+}
 
 /* The kind ("DOOR"/"WINDOW") owns the header line on its own; the remove
    button is lifted out of flow into that line's right end so it stops
@@ -1717,6 +1724,14 @@ td select {
 }
 .opening-door {
   background: #5d584f;
+}
+/* G1: the marker for the opening currently selected via a click (mouse or
+   marker tap) -- an outline, not a border, so it stacks independently of
+   .cased's own 3px border instead of the two fighting over the same
+   property. */
+.opening.selected {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .face-annotation {

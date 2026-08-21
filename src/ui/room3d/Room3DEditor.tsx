@@ -59,6 +59,9 @@ export function Room3DEditor({
   onBack,
 }: Props) {
   const [armed, setArmed] = useState<OpeningKind | null>(null);
+  const [selectedOpeningId, setSelectedOpeningId] = useState<string | null>(
+    null,
+  );
   const isWide = useIsWide();
 
   // WallPlane's click offset (0 = the clicked wall's own screen-left edge,
@@ -71,6 +74,11 @@ export function Room3DEditor({
   // left is always its screen-left whenever that wall can be clicked at
   // all. Click, storage, and render already round-trip correctly.
   const place = (wallIndex: 0 | 1 | 2 | 3, offset: number) => {
+    // A click on bare wall (as opposed to an existing opening's own marker,
+    // which stops its click from ever reaching here — see OpeningMarker)
+    // always means "not that opening any more", whether or not it's also
+    // about to place a new one.
+    setSelectedOpeningId(null);
     if (!isWide || !armed) return;
     const opening = {
       ...newOpening(armed, nextId("place")),
@@ -78,6 +86,9 @@ export function Room3DEditor({
       offset,
     };
     onChange({ ...room, openings: [...room.openings, opening] });
+    // Placing an opening selects it, so the panel immediately shows (and
+    // scrolls to) the row he just created.
+    setSelectedOpeningId(opening.id);
     // One click places one opening. Staying armed makes it far too easy to
     // scatter duplicates while orbiting.
     setArmed(null);
@@ -110,7 +121,8 @@ export function Room3DEditor({
           geometry={geometry}
           maxPx={360}
           onAddOpening={place}
-          onSelectOpening={() => {}}
+          onSelectOpening={setSelectedOpeningId}
+          selectedOpeningId={selectedOpeningId}
         />
       </div>
 
@@ -123,6 +135,7 @@ export function Room3DEditor({
           onChange={onChange}
           onRemove={onRemove}
           onBack={onBack}
+          selectedOpeningId={selectedOpeningId}
         />
       </div>
     </div>

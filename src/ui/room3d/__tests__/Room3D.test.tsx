@@ -304,4 +304,43 @@ describe("Room3D", () => {
       geo!.netWallArea.toFixed(0),
     );
   });
+
+  // --- G1: selection threads through to the marker -------------------------
+
+  it("forwards selectedOpeningId to the matching opening marker only", () => {
+    const room = makeRoom([
+      win("a", { wallIndex: 0 }),
+      win("b", { wallIndex: 1 }),
+    ]);
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+        selectedOpeningId="b"
+      />,
+    );
+    expect(screen.getByTestId("opening-a").className).not.toMatch(
+      /\bselected\b/,
+    );
+    expect(screen.getByTestId("opening-b").className).toMatch(/\bselected\b/);
+  });
+
+  it("calls onSelectOpening with the clicked marker's id", async () => {
+    const onSelectOpening = vi.fn();
+    const room = makeRoom([win("a", { wallIndex: 0 })]);
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={onSelectOpening}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("opening-a"));
+    expect(onSelectOpening).toHaveBeenCalledWith("a");
+  });
 });

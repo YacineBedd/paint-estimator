@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Opening, OpeningKind } from "../engine/types";
 import { nextId } from "./idGen";
 
@@ -35,11 +35,12 @@ export function newOpening(kind: OpeningKind, id: string): Opening {
 
 interface RowProps {
   opening: Opening;
+  selected: boolean;
   onUpdate: (patch: Partial<Opening>) => void;
   onRemove: () => void;
 }
 
-function OpeningRow({ opening: o, onUpdate, onRemove }: RowProps) {
+function OpeningRow({ opening: o, selected, onUpdate, onRemove }: RowProps) {
   // Quantity/width/height mirror local state instead of reading straight off
   // `o` on every keystroke, for the same reason as RoomRow's wall/height
   // inputs: a purely prop-controlled number input has its DOM value forced
@@ -58,8 +59,26 @@ function OpeningRow({ opening: o, onUpdate, onRemove }: RowProps) {
   useEffect(() => setWidth(o.width), [o.width]);
   useEffect(() => setHeight(o.height), [o.height]);
 
+  // Scrolls this row into view when the 3D view's marker for it gets
+  // clicked, so a painter working the split layout doesn't have to hunt
+  // for which row corresponds to which opening. Keyed on `selected`
+  // (a boolean derived from comparing this row's own stable id against the
+  // parent's selectedId) rather than depending on anything that changes on
+  // every render — a row that's already selected and re-renders because he
+  // is typing into one of its own fields must not scroll again.
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected) {
+      rowRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [selected]);
+
   return (
-    <div className="opening-row">
+    <div
+      ref={rowRef}
+      data-testid={`opening-row-${o.id}`}
+      className={`opening-row${selected ? " selected" : ""}`}
+    >
       <span>{o.kind}</span>
       {o.kind === "door" && (
         <label>
@@ -135,9 +154,13 @@ function OpeningRow({ opening: o, onUpdate, onRemove }: RowProps) {
 interface Props {
   openings: Opening[];
   onChange: (openings: Opening[]) => void;
+  /** Highlights and scrolls to the matching row — set by the 3D view when
+   *  its own opening marker is clicked. Optional and unused by the plain
+   *  (non-3D) room-list path, which never has anything selected. */
+  selectedId?: string | null;
 }
 
-export function OpeningsEditor({ openings, onChange }: Props) {
+export function OpeningsEditor({ openings, onChange, selectedId }: Props) {
   const update = (id: string, patch: Partial<Opening>) =>
     onChange(openings.map((o) => (o.id === id ? { ...o, ...patch } : o)));
 
@@ -159,6 +182,7 @@ export function OpeningsEditor({ openings, onChange }: Props) {
         <OpeningRow
           key={o.id}
           opening={o}
+          selected={selectedId != null && o.id === selectedId}
           onUpdate={(patch) => update(o.id, patch)}
           onRemove={() => onChange(openings.filter((x) => x.id !== o.id))}
         />

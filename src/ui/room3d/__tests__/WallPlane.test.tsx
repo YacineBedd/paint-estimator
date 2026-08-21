@@ -169,4 +169,34 @@ describe("WallPlane", () => {
     );
     expect(screen.getByTestId("opening-w1").className).not.toMatch(/cased/);
   });
+
+  // --- G1: clicking an opening now selects it ------------------------------
+
+  it("marks the opening matching selectedOpeningId as selected", () => {
+    render(
+      <WallPlane
+        {...base}
+        openings={[win(), win({ id: "w2" })]}
+        selectedOpeningId="w2"
+      />,
+    );
+    expect(screen.getByTestId("opening-w1").className).not.toMatch(
+      /\bselected\b/,
+    );
+    expect(screen.getByTestId("opening-w2").className).toMatch(/\bselected\b/);
+  });
+
+  it("marks no opening as selected when selectedOpeningId is omitted", () => {
+    render(<WallPlane {...base} openings={[win()]} />);
+    expect(screen.getByTestId("opening-w1").className).not.toMatch(
+      /\bselected\b/,
+    );
+  });
+
+  it("marks no opening as selected when selectedOpeningId is null", () => {
+    render(<WallPlane {...base} openings={[win()]} selectedOpeningId={null} />);
+    expect(screen.getByTestId("opening-w1").className).not.toMatch(
+      /\bselected\b/,
+    );
+  });
 });

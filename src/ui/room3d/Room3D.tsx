@@ -15,6 +15,7 @@ interface Props {
   maxPx: number;
   onAddOpening: (wallIndex: 0 | 1 | 2 | 3, offset: number) => void;
   onSelectOpening: (id: string) => void;
+  selectedOpeningId?: string | null;
 }
 
 const YAW_STEP = 15;
@@ -32,6 +33,7 @@ export function Room3D({
   maxPx,
   onAddOpening,
   onSelectOpening,
+  selectedOpeningId,
 }: Props) {
   const [yaw, setYaw] = useState(30);
   const [pitch, setPitch] = useState(-20);
@@ -102,6 +104,7 @@ export function Room3D({
               inScope={inScope(face)}
               showTrim={face.kind === "wall" && room.scope.trim}
               annotation={annotate(face)}
+              selectedOpeningId={selectedOpeningId}
               onPlace={(offset) =>
                 face.kind === "wall" && onAddOpening(face.wallIndex!, offset)
               }

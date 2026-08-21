@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Room3DEditor } from "../Room3DEditor";
@@ -26,7 +27,43 @@ const props = {
   onBack: vi.fn(),
 };
 
+const doorOnWall0: Room["openings"][number] = {
+  id: "d1",
+  kind: "door",
+  quantity: 1,
+  width: 3,
+  height: 7,
+  paintSlab: true,
+  casedSides: 2,
+  wallIndex: 0,
+  offset: 0.5,
+};
+
+/** A real parent-owned round trip: onChange feeds back into `room`, exactly
+ *  as TakeoffScreen does, so selection state (held inside Room3DEditor
+ *  itself) survives across the room being replaced. */
+function Controlled({ initialRoom }: { initialRoom: Room }) {
+  const [r, setR] = useState(initialRoom);
+  return (
+    <Room3DEditor
+      {...props}
+      room={r}
+      geometry={computeGeometry([r], goldenJob.rateProfile)[0]}
+      onChange={setR}
+    />
+  );
+}
+
 describe("Room3DEditor", () => {
+  // Selecting an opening highlights and scrolls to its row in the panel
+  // (rendered here via RoomEditor -> OpeningsEditor), but jsdom does not
+  // implement scrollIntoView at all — calling the real thing throws "not
+  // implemented" and would fail every selection test below, not just ones
+  // that care about scrolling.
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
   it("renders the 3D room and the panel together", () => {
     render(<Room3DEditor {...props} />);
     expect(screen.getByTestId("face-wall-0")).toBeInTheDocument();
@@ -137,6 +174,60 @@ describe("Room3DEditor", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  // --- G1: clicking an opening now selects it ------------------------------
+
+  it("selects the clicked opening marker and highlights the matching panel row", async () => {
+    const withOpening = { ...room, openings: [doorOnWall0] };
+    render(
+      <Room3DEditor
+        {...props}
+        room={withOpening}
+        geometry={computeGeometry([withOpening], goldenJob.rateProfile)[0]}
+      />,
+    );
+    expect(screen.getByTestId("opening-d1").className).not.toMatch(
+      /\bselected\b/,
+    );
+    await userEvent.click(screen.getByTestId("opening-d1"));
+    expect(screen.getByTestId("opening-d1").className).toMatch(/\bselected\b/);
+    expect(screen.getByTestId("opening-row-d1").className).toMatch(
+      /\bselected\b/,
+    );
+  });
+
+  it("placing a new opening selects it", async () => {
+    render(<Controlled initialRoom={room} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: /place window/i }),
+    );
+    await userEvent.click(screen.getByTestId("face-wall-0"));
+
+    // Exactly one opening now exists, and it must be the selected one, both
+    // on its 3D marker and in the panel's own list row.
+    const marker = screen.getByTestId(/^opening-(?!row-)/);
+    expect(marker.className).toMatch(/\bselected\b/);
+    const id = marker.getAttribute("data-testid")!.replace("opening-", "");
+    expect(screen.getByTestId(`opening-row-${id}`).className).toMatch(
+      /\bselected\b/,
+    );
+  });
+
+  it("clicking bare wall clears the selection", async () => {
+    render(<Controlled initialRoom={{ ...room, openings: [doorOnWall0] }} />);
+    await userEvent.click(screen.getByTestId("opening-d1"));
+    expect(screen.getByTestId("opening-d1").className).toMatch(/\bselected\b/);
+
+    // No tool armed — this click doesn't add anything, but it must still
+    // clear the existing selection.
+    await userEvent.click(screen.getByTestId("face-wall-1"));
+    expect(screen.getByTestId("opening-d1").className).not.toMatch(
+      /\bselected\b/,
+    );
+    expect(screen.getByTestId("opening-row-d1").className).not.toMatch(
+      /\bselected\b/,
+    );
   });
 });
 
