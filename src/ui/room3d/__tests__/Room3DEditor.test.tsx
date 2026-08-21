@@ -229,6 +229,22 @@ describe("Room3DEditor", () => {
       /\bselected\b/,
     );
   });
+
+  // --- G2: a wall is keyboard-operable, end to end --------------------------
+
+  it("places a centred opening when a focused wall receives Enter", async () => {
+    const onChange = vi.fn();
+    render(<Room3DEditor {...props} onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: /place door/i }));
+    const wall = screen.getByTestId("face-wall-0");
+    wall.focus();
+    fireEvent.keyDown(wall, { key: "Enter" });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const opening = onChange.mock.calls.at(-1)![0].openings[0];
+    expect(opening.wallIndex).toBe(0);
+    expect(opening.offset).toBe(0.5);
+  });
 });
 
 function stubMatchMedia(matches: boolean) {
