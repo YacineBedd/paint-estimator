@@ -304,4 +304,118 @@ describe("Room3D", () => {
       geo!.netWallArea.toFixed(0),
     );
   });
+
+  // --- G1: selection threads through to the marker -------------------------
+
+  it("forwards selectedOpeningId to the matching opening marker only", () => {
+    const room = makeRoom([
+      win("a", { wallIndex: 0 }),
+      win("b", { wallIndex: 1 }),
+    ]);
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+        selectedOpeningId="b"
+      />,
+    );
+    expect(screen.getByTestId("opening-a").className).not.toMatch(
+      /\bselected\b/,
+    );
+    expect(screen.getByTestId("opening-b").className).toMatch(/\bselected\b/);
+  });
+
+  it("calls onSelectOpening with the clicked marker's id", async () => {
+    const onSelectOpening = vi.fn();
+    const room = makeRoom([win("a", { wallIndex: 0 })]);
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={onSelectOpening}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("opening-a"));
+    expect(onSelectOpening).toHaveBeenCalledWith("a");
+  });
+
+  // --- G3: the viewport is sized to the box's actual on-screen extent ------
+
+  it("sets an explicit viewport height derived from the box, not a fixed constant", () => {
+    const room = makeRoom();
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+      />,
+    );
+    const viewport = screen.getByTestId("room3d-viewport");
+    expect(viewport.style.height).toMatch(/^\d+px$/);
+  });
+
+  it("keeps a floor height so a tiny room's viewport doesn't collapse", () => {
+    const room = makeRoom([], { walls: [2, 2], ceilingHeight: 2 });
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+      />,
+    );
+    const viewport = screen.getByTestId("room3d-viewport");
+    expect(viewport.style.height).toBe("320px");
+  });
+
+  it("caps the viewport height for a large room tilted to a steep pitch", async () => {
+    // A cube-ish room rendered at a generous maxPx and driven to the
+    // steepest allowed tilt pushes the raw box math (see Room3D's
+    // verticalExtentPx comment) well past any sensible viewport height —
+    // this asserts the cap actually clamps it rather than growing without
+    // bound.
+    const room = makeRoom([], { walls: [50, 50], ceilingHeight: 50 });
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={1000}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /rotate right/i }),
+    );
+    for (let i = 0; i < 4; i++) {
+      await userEvent.click(screen.getByRole("button", { name: /tilt down/i }));
+    }
+    const viewport = screen.getByTestId("room3d-viewport");
+    expect(viewport.style.height).toBe("640px");
+  });
+
+  it("changes the viewport height when the tilt changes", async () => {
+    const room = makeRoom();
+    render(
+      <Room3D
+        room={room}
+        geometry={geoFor(room)}
+        maxPx={400}
+        onAddOpening={() => {}}
+        onSelectOpening={() => {}}
+      />,
+    );
+    const viewport = screen.getByTestId("room3d-viewport");
+    const before = viewport.style.height;
+    await userEvent.click(screen.getByRole("button", { name: /tilt down/i }));
+    expect(viewport.style.height).not.toBe(before);
+  });
 });

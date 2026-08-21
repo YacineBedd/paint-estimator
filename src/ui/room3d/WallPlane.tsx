@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import type { Opening } from "../../engine/types";
 import type { Face } from "./projection";
 import { OpeningMarker } from "./OpeningMarker";
@@ -10,9 +10,17 @@ interface Props {
   inScope: boolean;
   showTrim: boolean;
   annotation: string;
+  selectedOpeningId?: string | null;
   onPlace: (offset: number) => void;
   onSelectOpening: (id: string) => void;
 }
+
+const faceLabel = (face: Face): string =>
+  face.kind === "wall"
+    ? `Wall ${(face.wallIndex ?? 0) + 1}`
+    : face.kind === "floor"
+      ? "Floor"
+      : "Ceiling";
 
 export function WallPlane({
   face,
@@ -21,6 +29,7 @@ export function WallPlane({
   inScope,
   showTrim,
   annotation,
+  selectedOpeningId,
   onPlace,
   onSelectOpening,
 }: Props) {
@@ -34,6 +43,27 @@ export function WallPlane({
     onPlace(Math.min(1, Math.max(0, offset)));
   };
 
+  // Enter/Space place an opening dead centre (offset 0.5). That's not a
+  // compromise: you can't aim a click position with a keyboard, but
+  // offset never reaches the estimate (see projection.ts's openingBox and
+  // engine/geometry.ts — only width/height/quantity ever change the price),
+  // so a keyboard user arrives at exactly the same number as a mouse user,
+  // just without a say in exactly where the marker is drawn.
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    onPlace(0.5);
+  };
+
+  const a11yProps = inScope
+    ? {
+        role: "button" as const,
+        tabIndex: 0,
+        "aria-label": `${faceLabel(face)}, ${annotation}`,
+        onKeyDown: handleKeyDown,
+      }
+    : {};
+
   return (
     <div
       data-testid={`face-${face.id}`}
@@ -46,6 +76,7 @@ export function WallPlane({
         transform: face.transform,
       }}
       onClick={handleClick}
+      {...a11yProps}
     >
       {face.kind === "wall" && showTrim && (
         <div className="baseboard" data-testid={`baseboard-${face.id}`} />
@@ -58,6 +89,7 @@ export function WallPlane({
           wallWidthFt={face.widthFt}
           scale={scale}
           showTrim={showTrim}
+          selected={o.id === selectedOpeningId}
           onSelect={onSelectOpening}
         />
       ))}

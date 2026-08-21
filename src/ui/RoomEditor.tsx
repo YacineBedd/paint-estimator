@@ -19,6 +19,11 @@ interface Props {
   onChange: (room: Room) => void;
   onRemove: () => void;
   onBack: () => void;
+  /** Set by Room3DEditor when its 3D view has an opening marker selected, so
+   *  the matching row here can highlight and scroll into view. Unused (and
+   *  unneeded) by the plain room-list path, which has no 3D selection to
+   *  reflect. */
+  selectedOpeningId?: string | null;
 }
 
 interface ProductSelectProps {
@@ -117,6 +122,7 @@ export function RoomEditor({
   onChange,
   onRemove,
   onBack,
+  selectedOpeningId,
 }: Props) {
   // Removing a room used to sit top-right, directly opposite the back
   // button — both inside a phone's one-handed thumb arc, one of them
@@ -205,6 +211,7 @@ export function RoomEditor({
       <OpeningsEditor
         openings={room.openings}
         onChange={(openings) => onChange({ ...room, openings })}
+        selectedId={selectedOpeningId}
       />
 
       {/* Set once per room and then never touched again — three permanent

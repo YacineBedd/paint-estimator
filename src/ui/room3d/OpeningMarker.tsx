@@ -6,6 +6,7 @@ interface Props {
   wallWidthFt: number;
   scale: number;
   showTrim: boolean;
+  selected: boolean;
   onSelect: (id: string) => void;
 }
 
@@ -14,6 +15,7 @@ export function OpeningMarker({
   wallWidthFt,
   scale,
   showTrim,
+  selected,
   onSelect,
 }: Props) {
   const box = openingBox(opening, wallWidthFt, scale);
@@ -22,12 +24,13 @@ export function OpeningMarker({
   // trim is switched off tells him casing is being painted when nothing is
   // being charged for it.
   const cased = showTrim && opening.casedSides > 0 ? " cased" : "";
+  const selectedClass = selected ? " selected" : "";
 
   return (
     <button
       type="button"
       data-testid={`opening-${opening.id}`}
-      className={`opening opening-${opening.kind}${cased}`}
+      className={`opening opening-${opening.kind}${cased}${selectedClass}`}
       aria-label={`${opening.kind}, ${opening.width} by ${opening.height} feet`}
       style={{
         left: `${box.leftPx}px`,

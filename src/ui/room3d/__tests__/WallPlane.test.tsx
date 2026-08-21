@@ -169,4 +169,91 @@ describe("WallPlane", () => {
     );
     expect(screen.getByTestId("opening-w1").className).not.toMatch(/cased/);
   });
+
+  // --- G1: clicking an opening now selects it ------------------------------
+
+  it("marks the opening matching selectedOpeningId as selected", () => {
+    render(
+      <WallPlane
+        {...base}
+        openings={[win(), win({ id: "w2" })]}
+        selectedOpeningId="w2"
+      />,
+    );
+    expect(screen.getByTestId("opening-w1").className).not.toMatch(
+      /\bselected\b/,
+    );
+    expect(screen.getByTestId("opening-w2").className).toMatch(/\bselected\b/);
+  });
+
+  it("marks no opening as selected when selectedOpeningId is omitted", () => {
+    render(<WallPlane {...base} openings={[win()]} />);
+    expect(screen.getByTestId("opening-w1").className).not.toMatch(
+      /\bselected\b/,
+    );
+  });
+
+  it("marks no opening as selected when selectedOpeningId is null", () => {
+    render(<WallPlane {...base} openings={[win()]} selectedOpeningId={null} />);
+    expect(screen.getByTestId("opening-w1").className).not.toMatch(
+      /\bselected\b/,
+    );
+  });
+
+  // --- G2: an in-scope face is keyboard-operable ---------------------------
+
+  it("gives an in-scope face a button role, tabIndex and an aria-label naming the wall and its area", () => {
+    render(<WallPlane {...base} openings={[]} />);
+    const el = screen.getByTestId("face-wall-0");
+    expect(el.getAttribute("role")).toBe("button");
+    expect(el.getAttribute("tabindex")).toBe("0");
+    const label = el.getAttribute("aria-label");
+    expect(label).toBeTruthy();
+    expect(label).toMatch(/wall/i);
+    expect(label).toMatch("10 × 8 = 80 sq ft");
+  });
+
+  it("gives an out-of-scope face no role, tabIndex or keyboard path", () => {
+    render(<WallPlane {...base} inScope={false} openings={[]} />);
+    const el = screen.getByTestId("face-wall-0");
+    expect(el.getAttribute("role")).toBeNull();
+    expect(el.getAttribute("tabindex")).toBeNull();
+    expect(el.getAttribute("aria-label")).toBeNull();
+  });
+
+  it("places a centred opening on Enter", () => {
+    const onPlace = vi.fn();
+    render(<WallPlane {...base} onPlace={onPlace} openings={[]} />);
+    const el = screen.getByTestId("face-wall-0");
+    fireEvent.keyDown(el, { key: "Enter" });
+    expect(onPlace).toHaveBeenCalledTimes(1);
+    expect(onPlace).toHaveBeenCalledWith(0.5);
+  });
+
+  it("places a centred opening on Space", () => {
+    const onPlace = vi.fn();
+    render(<WallPlane {...base} onPlace={onPlace} openings={[]} />);
+    const el = screen.getByTestId("face-wall-0");
+    fireEvent.keyDown(el, { key: " " });
+    expect(onPlace).toHaveBeenCalledTimes(1);
+    expect(onPlace).toHaveBeenCalledWith(0.5);
+  });
+
+  it("ignores other keys", () => {
+    const onPlace = vi.fn();
+    render(<WallPlane {...base} onPlace={onPlace} openings={[]} />);
+    const el = screen.getByTestId("face-wall-0");
+    fireEvent.keyDown(el, { key: "Tab" });
+    expect(onPlace).not.toHaveBeenCalled();
+  });
+
+  it("does not respond to Enter on an out-of-scope face (no listener attached)", () => {
+    const onPlace = vi.fn();
+    render(
+      <WallPlane {...base} inScope={false} onPlace={onPlace} openings={[]} />,
+    );
+    const el = screen.getByTestId("face-wall-0");
+    fireEvent.keyDown(el, { key: "Enter" });
+    expect(onPlace).not.toHaveBeenCalled();
+  });
 });
